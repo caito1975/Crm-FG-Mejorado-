@@ -1,12 +1,11 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import {
   DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCorners,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { createClient } from '@/lib/supabase/client'
-import type { Deal, PipelineStage, Contact, ContactStatus } from '@/lib/types'
+import type { Deal, PipelineStage, Contact } from '@/lib/types'
 import { useCurrency } from '@/lib/useCurrency'
 import KanbanColumn from './KanbanColumn'
 import DealCard from './DealCard'
@@ -24,7 +23,8 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
   const supabase = createClient()
   const { formatAmount } = useCurrency()
   const [deals, setDeals]         = useState(initialDeals)
-  const [activeId, setActiveId]   = useState<string | null>(null)
+  const [activeId, setActiveId]         = useState<string | null>(null)
+  const [originalStage, setOriginalStage] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editDeal, setEditDeal]   = useState<Deal | null>(null)
   const [defaultStage, setDefaultStage] = useState<string>('enviado')
@@ -37,6 +37,8 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
 
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(active.id as string)
+    const stage = deals.find(d => d.id === active.id)?.stage_id ?? null
+    setOriginalStage(stage)
   }
 
   function handleDragOver({ active, over }: DragOverEvent) {
@@ -49,43 +51,39 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
     setDeals(ds => ds.map(d => d.id === active.id ? { ...d, stage_id: overStage } : d))
   }
 
+  const STAGE_TO_STATUS: Record<string, string> = {
+    ganado: 'cliente', perdido: 'archivado', enviado: 'enviado',
+    enviar_mail: 'enviar_mail', interesado: 'interesado', oportunidad: 'oportunidad',
+  }
+
+  async function syncContactStatus(contactId: string | null | undefined, stageId: string) {
+    if (!contactId) return
+    const status = STAGE_TO_STATUS[stageId] ?? 'oportunidad'
+    await supabase.from('contacts').update({ status }).eq('id', contactId)
+  }
+
   async function handleDragEnd({ active, over }: DragEndEvent) {
     setActiveId(null)
-    if (!over) return
+    const prevStage = originalStage
+    setOriginalStage(null)
+    if (!over || !prevStage) return
 
     const deal = deals.find(d => d.id === active.id)
     if (!deal) return
 
-    // Find target stage (from over's deal or column)
-    const targetStage = deals.find(d => d.id === over.id)?.stage_id
-      ?? (stages.find(s => s.id === over.id)?.id)
-      ?? deal.stage_id
+    // deal.stage_id was already updated optimistically; use prevStage to detect actual change
+    const targetStage = deal.stage_id
 
-    if (targetStage !== deal.stage_id) {
-      // Already updated optimistically in handleDragOver; persist to DB
+    if (targetStage !== prevStage) {
       const { error } = await supabase
         .from('deals')
         .update({ stage_id: targetStage })
         .eq('id', deal.id)
 
       if (error) {
-        // Rollback
-        setDeals(ds => ds.map(d => d.id === deal.id ? { ...d, stage_id: deal.stage_id } : d))
+        setDeals(ds => ds.map(d => d.id === deal.id ? { ...d, stage_id: prevStage } : d))
       } else {
-        // Sync contact status to reflect pipeline position
-        if (deal.contact_id) {
-          const STAGE_TO_STATUS: Record<string, ContactStatus> = {
-            ganado:      'cliente',
-            perdido:     'archivado',
-            enviado:     'enviado',
-            enviar_mail: 'enviar_mail',
-            interesado:  'interesado',
-            oportunidad: 'oportunidad',
-          }
-          const contactStatus: ContactStatus = STAGE_TO_STATUS[targetStage] ?? 'oportunidad'
-          await supabase.from('contacts').update({ status: contactStatus }).eq('id', deal.contact_id)
-        }
-        // Log activity
+        await syncContactStatus(deal.contact_id, targetStage)
         await supabase.from('activities').insert({
           user_id: userId,
           kind: 'stage_change',
@@ -103,12 +101,19 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
       const { data: updated } = await supabase
         .from('deals').update(data).eq('id', editDeal.id)
         .select('*, contact:contacts(id,name,company)').single()
-      if (updated) setDeals(ds => ds.map(d => d.id === editDeal.id ? updated as Deal : d))
+      if (updated) {
+        setDeals(ds => ds.map(d => d.id === editDeal.id ? updated as Deal : d))
+        if (data.stage_id) await syncContactStatus(updated.contact_id, data.stage_id)
+      }
     } else {
+      const stageId = (data.stage_id as string) || defaultStage
       const { data: created } = await supabase
-        .from('deals').insert({ ...data, user_id: userId, stage_id: defaultStage })
+        .from('deals').insert({ ...data, user_id: userId, stage_id: stageId })
         .select('*, contact:contacts(id,name,company)').single()
-      if (created) setDeals(ds => [...ds, created as Deal])
+      if (created) {
+        setDeals(ds => [...ds, created as Deal])
+        await syncContactStatus(created.contact_id, stageId)
+      }
     }
     setShowModal(false)
     setEditDeal(null)
