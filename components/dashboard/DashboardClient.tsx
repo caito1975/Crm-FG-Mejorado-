@@ -118,8 +118,8 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
         </div>
       </div>
 
-      {/* KPI tiles — fila 1: inversión y cierre */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+      {/* KPI tiles — fila 1: inversión, cierre y pérdida */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 12 }}>
         <StatTile
           lbl="Inversión estimada"
           val={formatAmount(totalInvestment)}
@@ -148,10 +148,18 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
           data={[24,28,30,32,34,36,38,36,38]}
           color="oklch(65% 0.13 230)"
         />
+        <StatTile
+          lbl="Tasa de pérdida"
+          val={`${lossRate}%`}
+          delta={`${lostDeals.length} perdidos`}
+          up={lossRate === 0}
+          data={[0,1,2,2,3,3,2,2,lostDeals.length]}
+          color="oklch(60% 0.14 25)"
+        />
       </div>
 
-      {/* KPI tiles — fila 2: leads y performance */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>
+      {/* KPI tiles — fila 2: leads */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
         <StatTile
           lbl="Total de leads"
           val={filteredContacts.length.toString()}
@@ -187,14 +195,6 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
           delta={`${filteredContacts.filter(c => c.status === 'cliente').length} clientes`} up
           data={[5,8,10,12,15,16,18,20,filteredContacts.length]}
           color="oklch(70% 0.13 75)"
-        />
-        <StatTile
-          lbl="Tasa de pérdida"
-          val={`${lossRate}%`}
-          delta={`${lostDeals.length} perdidos`}
-          up={lossRate === 0}
-          data={[0,1,2,2,3,3,2,2,lostDeals.length]}
-          color="oklch(60% 0.14 25)"
         />
       </div>
 
