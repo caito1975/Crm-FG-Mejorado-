@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCorners,
@@ -23,8 +23,8 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
   const supabase = createClient()
   const { formatAmount } = useCurrency()
   const [deals, setDeals]         = useState(initialDeals)
-  const [activeId, setActiveId]         = useState<string | null>(null)
-  const [originalStage, setOriginalStage] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const originalStageRef        = useRef<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editDeal, setEditDeal]   = useState<Deal | null>(null)
   const [defaultStage, setDefaultStage] = useState<string>('enviado')
@@ -37,8 +37,7 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
 
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(active.id as string)
-    const stage = deals.find(d => d.id === active.id)?.stage_id ?? null
-    setOriginalStage(stage)
+    originalStageRef.current = deals.find(d => d.id === active.id)?.stage_id ?? null
   }
 
   function handleDragOver({ active, over }: DragOverEvent) {
@@ -62,11 +61,11 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
     await supabase.from('contacts').update({ status }).eq('id', contactId)
   }
 
-  async function handleDragEnd({ active, over }: DragEndEvent) {
+  async function handleDragEnd({ active }: DragEndEvent) {
     setActiveId(null)
-    const prevStage = originalStage
-    setOriginalStage(null)
-    if (!over || !prevStage) return
+    const prevStage = originalStageRef.current
+    originalStageRef.current = null
+    if (!prevStage) return
 
     const deal = deals.find(d => d.id === active.id)
     if (!deal) return
