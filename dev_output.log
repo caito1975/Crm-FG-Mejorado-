@@ -12,3 +12,80 @@
  ✓ Compiled /middleware in 791ms (125 modules)
  ○ Compiling /pipeline ...
  ✓ Compiled /pipeline in 3.6s (696 modules)
+ GET /pipeline 200 in 4522ms
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (231kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 584ms (729 modules)
+ ✓ Compiled /dashboard in 305ms (729 modules)
+ GET /pipeline 200 in 536ms
+ GET /pipeline 200 in 628ms
+ ✓ Compiled in 567ms (342 modules)
+ ✓ Compiled in 179ms (342 modules)
+ ✓ Compiled in 178ms (342 modules)
+ ✓ Compiled in 1025ms (685 modules)
+ ✓ Compiled in 569ms (718 modules)
+ GET /dashboard 200 in 1044ms
+ ✓ Compiled /login in 99ms (402 modules)
+ GET /pipeline 200 in 442ms
+ ○ Compiling /reports ...
+ ✓ Compiled /reports in 4.8s (1758 modules)
+ ✓ Compiled in 1535ms (1758 modules)
+ ✓ Compiled in 809ms (1758 modules)
+ ✓ Compiled in 887ms (1758 modules)
+ ✓ Compiled in 796ms (1758 modules)
+ ✓ Compiled /tasks in 430ms (1751 modules)
+ GET /tasks 200 in 643ms
+ ✓ Compiled /calendar in 492ms (1772 modules)
+ GET /dashboard 200 in 594ms
+ GET /pipeline 200 in 418ms
+ GET /pipeline 200 in 461ms
+ ○ Compiling /api/integrations/calendar/create ...
+ ✓ Compiled /api/integrations/calendar/create in 616ms (440 modules)
+ POST /api/integrations/calendar/create 200 in 1978ms
+ GET /tasks 200 in 662ms
+ ✓ Compiled in 1844ms (1265 modules)
+ ✓ Compiled in 873ms (1265 modules)
+ ✓ Compiled in 989ms (1265 modules)
+ ⨯ app\(app)\pipeline\page.tsx (32:8) @ Topbar
+ ⨯ ReferenceError: Topbar is not defined
+    at PipelinePage (pipeline/page.tsx:39:89)
+digest: "1472193778"
+[0m [90m 30 |[39m   [36mreturn[39m ([0m
+[0m [90m 31 |[39m     [33m<[39m[33m>[39m[0m
+[0m[31m[1m>[22m[39m[90m 32 |[39m       [33m<[39m[33mTopbar[39m crumbs[33m=[39m{[{ label[33m:[39m [32m'Pipeline'[39m }]} [33m/[39m[33m>[39m[0m
+[0m [90m    |[39m        [31m[1m^[22m[39m[0m
+[0m [90m 33 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"view flush"[39m style[33m=[39m{{ display[33m:[39m [32m'flex'[39m[33m,[39m flexDirection[33m:[39m [32m'column'[39m[33m,[39m overflow[33m:[39m [32m'hidden'[39m }}[33m>[39m[0m
+[0m [90m 34 |[39m         [33m<[39m[33mKanbanBoardClient[39m[0m
+[0m [90m 35 |[39m           userId[33m=[39m{user[33m.[39mid}[0m
+ ✓ Compiled in 919ms (1265 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /pipeline 200 in 622ms
+ GET /pipeline 200 in 415ms
+ ✓ Compiled in 1414ms (1265 modules)
+ ✓ Compiled in 799ms (1265 modules)
+ ✓ Compiled in 1085ms (1265 modules)
+ GET /pipeline 200 in 499ms
+ ✓ Compiled /api/integrations/calendar/create in 236ms (440 modules)
+ POST /api/integrations/calendar/create 200 in 1282ms
+ ○ Compiling /contacts ...
+ ✓ Compiled /contacts in 847ms (1260 modules)
+ ✓ Compiled in 1218ms (1268 modules)
+ ✓ Compiled in 1192ms (1268 modules)
+ ✓ Compiled in 901ms (1268 modules)
+ ✓ Compiled in 539ms (1268 modules)
+ ✓ Compiled in 860ms (1268 modules)
+ ✓ Compiled in 872ms (1268 modules)
+ ✓ Compiled /contacts in 390ms (418 modules)
+ ○ Compiling /contacts/[id] ...
+ ✓ Compiled /contacts/[id] in 770ms (1276 modules)
+ ○ Compiling /reports ...
+ ✓ Compiled /reports in 1062ms (920 modules)
+ ✓ Compiled in 1068ms (1778 modules)
+ ✓ Compiled in 1262ms (1778 modules)
+ ✓ Compiled in 1497ms (1764 modules)
+ ✓ Compiled /calendar in 416ms (911 modules)
+ ✓ Compiled /inbox in 474ms (1762 modules)
+ ✓ Compiled /pipeline in 314ms (903 modules)
+ ✓ Compiled /login in 493ms (920 modules)
+ ✓ Compiled /contacts in 447ms (920 modules)
+ ✓ Compiled /contacts/[id] in 321ms (925 modules)
