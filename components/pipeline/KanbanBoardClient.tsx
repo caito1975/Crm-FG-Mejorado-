@@ -5,6 +5,8 @@ import type { Deal, PipelineStage, Contact } from '@/lib/types'
 
 interface Props {
   userId: string
+  isOwner?: boolean
+  vendorAuthId?: string
   stages: PipelineStage[]
   initialDeals: Deal[]
   contacts: Pick<Contact, 'id' | 'name' | 'company'>[]
@@ -13,9 +15,7 @@ interface Props {
 export default function KanbanBoardClient(props: Props) {
   const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   if (!mounted) return <div style={{ flex: 1, minHeight: 0 }} />
 

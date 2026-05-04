@@ -15,12 +15,14 @@ import Topbar from '@/components/layout/Topbar'
 
 interface Props {
   userId: string
+  isOwner?: boolean
+  vendorAuthId?: string
   stages: PipelineStage[]
   initialDeals: Deal[]
   contacts: Pick<Contact, 'id' | 'name' | 'company'>[]
 }
 
-export default function KanbanBoard({ userId, stages, initialDeals, contacts }: Props) {
+export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stages, initialDeals, contacts }: Props) {
   const supabase = createClient()
   const { formatAmount } = useCurrency()
   const [deals, setDeals]         = useState(initialDeals)
@@ -154,8 +156,9 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
       }
     } else {
       const stageId = (data.stage_id as string) || defaultStage
+      const autoAssign = !isOwner && vendorAuthId ? { assigned_to: vendorAuthId } : {}
       const { data: created } = await supabase
-        .from('deals').insert({ ...data, user_id: userId, stage_id: stageId })
+        .from('deals').insert({ ...data, ...autoAssign, user_id: userId, stage_id: stageId })
         .select('*, contact:contacts(id,name,company)').single()
       if (created) {
         const newDeals = [...deals, created as Deal]

@@ -33,6 +33,8 @@ export default async function PipelinePage() {
     <div className="view flush" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <KanbanBoardClient
         userId={workspaceId}
+        isOwner={isOwner}
+        vendorAuthId={isOwner ? undefined : user.id}
         stages={effectiveStages}
         initialDeals={(deals as Deal[]) ?? []}
         contacts={(contacts as Pick<Contact, 'id' | 'name' | 'company'>[]) ?? []}
