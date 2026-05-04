@@ -61,6 +61,14 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
     await supabase.from('contacts').update({ status }).eq('id', contactId)
   }
 
+  async function syncContactValue(contactId: string | null | undefined, currentDeals: Deal[]) {
+    if (!contactId) return
+    const total = currentDeals
+      .filter(d => d.contact_id === contactId && d.stage_id !== 'perdido')
+      .reduce((s, d) => s + (d.amount ?? 0), 0)
+    await supabase.from('contacts').update({ value: total }).eq('id', contactId)
+  }
+
   async function handleDragEnd({ active }: DragEndEvent) {
     setActiveId(null)
     const prevStage = originalStageRef.current
@@ -83,6 +91,7 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
         setDeals(ds => ds.map(d => d.id === deal.id ? { ...d, stage_id: prevStage } : d))
       } else {
         await syncContactStatus(deal.contact_id, targetStage)
+        await syncContactValue(deal.contact_id, deals)
         await supabase.from('activities').insert({
           user_id: userId,
           kind: 'stage_change',
@@ -101,8 +110,10 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
         .from('deals').update(data).eq('id', editDeal.id)
         .select('*, contact:contacts(id,name,company)').single()
       if (updated) {
-        setDeals(ds => ds.map(d => d.id === editDeal.id ? updated as Deal : d))
+        const newDeals = deals.map(d => d.id === editDeal.id ? updated as Deal : d)
+        setDeals(newDeals)
         if (data.stage_id) await syncContactStatus(updated.contact_id, data.stage_id)
+        await syncContactValue(updated.contact_id, newDeals)
       }
     } else {
       const stageId = (data.stage_id as string) || defaultStage
@@ -110,8 +121,10 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
         .from('deals').insert({ ...data, user_id: userId, stage_id: stageId })
         .select('*, contact:contacts(id,name,company)').single()
       if (created) {
-        setDeals(ds => [...ds, created as Deal])
+        const newDeals = [...deals, created as Deal]
+        setDeals(newDeals)
         await syncContactStatus(created.contact_id, stageId)
+        await syncContactValue(created.contact_id, newDeals)
       }
     }
     setShowModal(false)
@@ -120,8 +133,11 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
 
   async function handleDeleteDeal(id: string) {
     if (!confirm('¿Eliminar este deal?')) return
+    const deal = deals.find(d => d.id === id)
     await supabase.from('deals').delete().eq('id', id)
-    setDeals(ds => ds.filter(d => d.id !== id))
+    const newDeals = deals.filter(d => d.id !== id)
+    setDeals(newDeals)
+    if (deal?.contact_id) await syncContactValue(deal.contact_id, newDeals)
   }
 
   function openNewDeal(stageId: string) {
