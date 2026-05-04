@@ -10,11 +10,12 @@ interface Props {
   stage: PipelineStage
   deals: Deal[]
   onAddDeal: () => void
+  onAddTask: (deal: Deal) => void
   onEditDeal: (deal: Deal) => void
   onDeleteDeal: (id: string) => void
 }
 
-export default function KanbanColumn({ stage, deals, onAddDeal, onEditDeal, onDeleteDeal }: Props) {
+export default function KanbanColumn({ stage, deals, onAddDeal, onAddTask, onEditDeal, onDeleteDeal }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const { formatAmount } = useCurrency()
   const total = deals.reduce((s, d) => s + d.amount, 0)
@@ -53,6 +54,7 @@ export default function KanbanColumn({ stage, deals, onAddDeal, onEditDeal, onDe
               deal={deal}
               onEdit={() => onEditDeal(deal)}
               onDelete={() => onDeleteDeal(deal.id)}
+              onAddTask={() => onAddTask(deal)}
             />
           ))}
         </div>
@@ -67,8 +69,7 @@ export default function KanbanColumn({ stage, deals, onAddDeal, onEditDeal, onDe
           background: 'transparent', border: 0,
           borderTop: deals.length > 0 ? '1px solid var(--border)' : 'none',
           color: 'var(--text-muted)', fontSize: 12.5,
-          cursor: 'default',
-          transition: 'background var(--tx)',
+          cursor: 'default', transition: 'background var(--tx)',
         }}
         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}

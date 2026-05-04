@@ -47,6 +47,11 @@ export default function ContactDetail({ userId, contact: initialContact, initial
   const [noteText, setNoteText]   = useState('')
   const [taskForm, setTaskForm]   = useState({ title: '', priority: 'media', due_label: '' })
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [showCompose, setShowCompose]   = useState(false)
+  const [showPhoneMenu, setShowPhoneMenu] = useState(false)
+  const [compose, setCompose]           = useState({ subject: '', body: '' })
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [sendError, setSendError]       = useState('')
 
   async function handleSaveContact(data: Partial<Contact>) {
     const { data: updated } = await supabase.from('contacts').update(data).eq('id', contact.id).select().single()
@@ -106,6 +111,32 @@ export default function ContactDetail({ userId, contact: initialContact, initial
     setShowTaskForm(false)
   }
 
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault()
+    if (!contact.email) return
+    setSendingEmail(true)
+    setSendError('')
+    const res = await fetch('/api/integrations/gmail/send', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ to: contact.email, subject: compose.subject, body: compose.body, contact_id: contact.id }),
+    })
+    const data = await res.json()
+    setSendingEmail(false)
+    if (!res.ok) {
+      setSendError(data.error ?? 'Error al enviar')
+      return
+    }
+    const act: Activity = {
+      id: crypto.randomUUID(), created_at: new Date().toISOString(),
+      user_id: userId, kind: 'email_out', who: 'tú',
+      body: compose.subject, contact_id: contact.id,
+    }
+    setActivities(as => [act, ...as])
+    setCompose({ subject: '', body: '' })
+    setShowCompose(false)
+  }
+
   async function toggleTask(id: string, done: boolean) {
     await supabase.from('tasks').update({ done }).eq('id', id)
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done } : t))
@@ -137,20 +168,64 @@ export default function ContactDetail({ userId, contact: initialContact, initial
 
         {/* Details */}
         {[
-          { icon: 'mail',     label: 'Email',    val: contact.email },
-          { icon: 'phone',    label: 'Teléfono', val: contact.phone },
-          { icon: 'building', label: 'Empresa',  val: contact.company },
-          { icon: 'pin',      label: 'Ciudad',   val: contact.city },
-          { icon: 'dollar',   label: 'Valor',    val: contact.value ? formatCurrency(contact.value) : null },
+          { icon: 'mail',     label: 'Email',   val: contact.email,   action: contact.email ? () => setShowCompose(true) : undefined },
+          { icon: 'building', label: 'Empresa', val: contact.company },
+          { icon: 'pin',      label: 'Ciudad',  val: contact.city },
+          { icon: 'dollar',   label: 'Valor',   val: contact.value ? formatCurrency(contact.value) : null },
         ].map(row => row.val ? (
           <div key={row.icon} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12.5 }}>
             <span style={{ color: 'var(--text-subtle)' }}><Icon name={row.icon} size={14} /></span>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 1 }}>{row.label}</div>
-              <div style={{ color: 'var(--text)' }}>{row.val}</div>
+              {'action' in row && row.action ? (
+                <button
+                  onClick={row.action}
+                  style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, textAlign: 'left', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '100%' }}
+                >
+                  {row.val}
+                </button>
+              ) : (
+                <div style={{ color: 'var(--text)', textOverflow: 'ellipsis', overflow: 'hidden' }}>{row.val}</div>
+              )}
             </div>
           </div>
         ) : null)}
+
+        {/* Teléfono con acciones */}
+        {contact.phone && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12.5 }}>
+            <span style={{ color: 'var(--text-subtle)', marginTop: 14 }}><Icon name="phone" size={14} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 1 }}>Teléfono</div>
+              <button
+                onClick={() => setShowPhoneMenu(m => !m)}
+                style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, textAlign: 'left' }}
+              >
+                {contact.phone}
+              </button>
+              {showPhoneMenu && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <a
+                    href={`tel:${contact.phone}`}
+                    onClick={() => setShowPhoneMenu(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--text)', textDecoration: 'none', cursor: 'pointer' }}
+                  >
+                    <Icon name="phone" size={12} /> Llamar
+                  </a>
+                  <a
+                    href={`https://wa.me/${contact.phone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowPhoneMenu(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', textDecoration: 'none', cursor: 'pointer' }}
+                  >
+                    <Icon name="whatsapp" size={12} /> WhatsApp
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {contact.tags.length > 0 && (
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -319,6 +394,64 @@ export default function ContactDetail({ userId, contact: initialContact, initial
           onSave={handleSaveContact}
           onClose={() => setShowEdit(false)}
         />
+      )}
+
+      {showCompose && (
+        <div className="modal-backdrop" onClick={() => setShowCompose(false)}>
+          <div className="modal" style={{ width: 540 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="send" size={16} /> Enviar email
+              </h3>
+              <button className="btn ghost sm icon" onClick={() => setShowCompose(false)}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <form onSubmit={sendEmail}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="field-label">Para</label>
+                  <input className="input" value={contact.email ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
+                </div>
+                <div>
+                  <label className="field-label">Asunto</label>
+                  <input
+                    className="input"
+                    placeholder="Asunto del email…"
+                    value={compose.subject}
+                    onChange={e => setCompose(c => ({ ...c, subject: e.target.value }))}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Mensaje</label>
+                  <textarea
+                    className="input"
+                    rows={7}
+                    placeholder="Escribí tu mensaje…"
+                    value={compose.body}
+                    onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}
+                    required
+                    style={{ resize: 'vertical' }}
+                  />
+                </div>
+                {sendError && (
+                  <div style={{ fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-soft)', borderRadius: 6, padding: '8px 12px' }}>
+                    {sendError}
+                  </div>
+                )}
+              </div>
+              <div className="modal-foot">
+                <button type="button" className="btn" onClick={() => setShowCompose(false)}>Cancelar</button>
+                <button type="submit" className="btn primary" disabled={sendingEmail || !compose.subject || !compose.body}>
+                  <Icon name="send" size={13} />
+                  {sendingEmail ? 'Enviando…' : 'Enviar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

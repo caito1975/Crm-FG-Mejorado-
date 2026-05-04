@@ -1,6 +1,5 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
-import Image from 'next/image'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import { createClient } from '@/lib/supabase/client'
@@ -66,7 +65,7 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sidebar">
+    <div className="crm-nav" role="complementary">
       {/* Header with logo */}
       <div
         className="sidebar-head"
@@ -139,6 +138,6 @@ export default function Sidebar({
           <Icon name="arrow_dn" size={14} />
         </button>
       </div>
-    </aside>
+    </div>
   )
 }

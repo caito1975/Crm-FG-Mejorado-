@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Topbar from '@/components/layout/Topbar'
-import KanbanBoard from '@/components/pipeline/KanbanBoard'
+import KanbanBoardClient from '@/components/pipeline/KanbanBoardClient'
 import type { Deal, PipelineStage, Contact } from '@/lib/types'
 import { DEFAULT_STAGES } from '@/lib/types'
 
@@ -29,23 +28,13 @@ export default async function PipelinePage() {
   }
 
   return (
-    <>
-      <Topbar
-        crumbs={[{ label: 'Pipeline' }]}
-        actions={
-          <button className="btn primary" id="new-deal-trigger">
-            + Nuevo deal
-          </button>
-        }
+    <div className="view flush" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <KanbanBoardClient
+        userId={user.id}
+        stages={effectiveStages}
+        initialDeals={(deals as Deal[]) ?? []}
+        contacts={(contacts as Pick<Contact, 'id' | 'name' | 'company'>[]) ?? []}
       />
-      <div className="view flush">
-        <KanbanBoard
-          userId={user.id}
-          stages={effectiveStages}
-          initialDeals={(deals as Deal[]) ?? []}
-          contacts={(contacts as Pick<Contact, 'id' | 'name' | 'company'>[]) ?? []}
-        />
-      </div>
-    </>
+    </div>
   )
 }

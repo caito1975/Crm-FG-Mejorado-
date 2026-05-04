@@ -5,10 +5,12 @@ const SCOPES: Record<string, string[]> = {
   gmail: [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
   ],
   google_calendar: [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
   ],
 }
 
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Provider inválido' }, { status: 400 })
   }
 
-  const base = `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  const base = process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`
   const redirectUri = `${base}/api/integrations/google/callback`
   console.log('🔑 redirect_uri enviado a Google:', redirectUri)
 

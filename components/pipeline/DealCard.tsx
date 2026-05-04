@@ -10,9 +10,10 @@ interface Props {
   isDragging?: boolean
   onEdit?: () => void
   onDelete?: () => void
+  onAddTask?: () => void
 }
 
-export default function DealCard({ deal, isDragging, onEdit, onDelete }: Props) {
+export default function DealCard({ deal, isDragging, onEdit, onDelete, onAddTask }: Props) {
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging: isSortableDragging,
@@ -61,7 +62,7 @@ export default function DealCard({ deal, isDragging, onEdit, onDelete }: Props) 
       </div>
 
       {/* Actions - only shown on hover via pointer-events */}
-      {(onEdit || onDelete) && (
+      {(onEdit || onDelete || onAddTask) && (
         <div
           style={{
             display: 'flex', gap: 4, justifyContent: 'flex-end',
@@ -69,6 +70,11 @@ export default function DealCard({ deal, isDragging, onEdit, onDelete }: Props) 
           }}
           onPointerDown={e => e.stopPropagation()}
         >
+          {onAddTask && (
+            <button className="btn ghost sm icon" onClick={onAddTask} title="Nueva tarea">
+              <Icon name="tasks" size={11} />
+            </button>
+          )}
           {onEdit && (
             <button className="btn ghost sm icon" onClick={onEdit} title="Editar">
               <Icon name="edit" size={11} />

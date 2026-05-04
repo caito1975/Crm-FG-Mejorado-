@@ -1,0 +1,14 @@
+
+> norte-crm@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.29
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.7s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 791ms (125 modules)
+ ○ Compiling /pipeline ...
+ ✓ Compiled /pipeline in 3.6s (696 modules)

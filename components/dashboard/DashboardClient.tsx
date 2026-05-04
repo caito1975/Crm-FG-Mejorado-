@@ -82,7 +82,14 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
   const lostDeals     = filteredDeals.filter(d => d.stage_id === 'perdido')
   const totalPipeline = openDeals.reduce((s, d) => s + d.amount, 0)
   const totalWon      = wonDeals.reduce((s, d) => s + d.amount, 0)
-  const openTasks     = tasks.filter(t => !t.done)
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999)
+  const openTasks  = tasks.filter(t => {
+    if (t.done) return false
+    if (!t.due_date) return false
+    const d = new Date(t.due_date)
+    return d >= todayStart && d <= todayEnd
+  })
   const closeRate     = filteredDeals.length > 0 ? Math.round((wonDeals.length / filteredDeals.length) * 100) : 0
   const lossRate      = filteredDeals.length > 0 ? Math.round((lostDeals.length / filteredDeals.length) * 100) : 0
 
@@ -246,7 +253,7 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
         {/* Tasks */}
         <div className="card">
           <div className="card-head">
-            <h3>Tareas pendientes</h3>
+            <h3>Tareas de hoy</h3>
             <a href="/tasks">
               <button className="btn ghost sm">Ver todas <Icon name="chev_right" size={12} /></button>
             </a>
@@ -260,7 +267,7 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
             ))}
             {openTasks.length === 0 && (
               <div className="empty" style={{ padding: '32px 24px' }}>
-                <p>Sin tareas pendientes 🎉</p>
+                <p>Sin tareas para hoy 🎉</p>
               </div>
             )}
           </div>

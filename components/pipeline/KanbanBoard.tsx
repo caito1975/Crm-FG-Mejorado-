@@ -11,6 +11,7 @@ import KanbanColumn from './KanbanColumn'
 import DealCard from './DealCard'
 import DealModal from './DealModal'
 import Icon from '@/components/ui/Icon'
+import Topbar from '@/components/layout/Topbar'
 
 interface Props {
   userId: string
@@ -25,9 +26,13 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
   const [deals, setDeals]         = useState(initialDeals)
   const [activeId, setActiveId] = useState<string | null>(null)
   const originalStageRef        = useRef<string | null>(null)
-  const [showModal, setShowModal] = useState(false)
-  const [editDeal, setEditDeal]   = useState<Deal | null>(null)
+  const [showModal, setShowModal]       = useState(false)
+  const [editDeal, setEditDeal]         = useState<Deal | null>(null)
   const [defaultStage, setDefaultStage] = useState<string>('enviado')
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [taskForm, setTaskForm] = useState({ title: '', contact_id: '', date: '', time: '09:00' })
+  const [savingTask, setSavingTask] = useState(false)
+  const [taskCalMsg, setTaskCalMsg] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -187,6 +192,53 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
     if (deal?.contact_id) await syncContactValue(deal.contact_id, newDeals)
   }
 
+  async function handleCreateTask(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingTask(true)
+    setTaskCalMsg('')
+
+    const due_date = taskForm.date && taskForm.time
+      ? new Date(`${taskForm.date}T${taskForm.time}:00`).toISOString()
+      : null
+
+    const due_label = taskForm.date
+      ? `${taskForm.date.split('-').reverse().join('/')} ${taskForm.time} hs`
+      : ''
+
+    const contact = contacts.find(c => c.id === taskForm.contact_id)
+
+    const { data: created } = await supabase.from('tasks').insert({
+      user_id:    userId,
+      title:      taskForm.title,
+      contact_id: taskForm.contact_id || null,
+      due_date,
+      due_label,
+      priority:   'media',
+    }).select().single()
+
+    if (created && due_date) {
+      const res = await fetch('/api/integrations/calendar/create', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          title:        taskForm.title,
+          due_date,
+          contact_name: contact?.name ?? null,
+          contact_id:   taskForm.contact_id || null,
+        }),
+      })
+      const calData = await res.json()
+      if (calData.calendar) setTaskCalMsg('✓ Agregado al calendario')
+      else if (calData.reason === 'sin_integracion') setTaskCalMsg('Guardado · Calendar no conectado')
+      else if (calData.reason === 'sin_permiso') setTaskCalMsg('Guardado · Reconectá Calendar para sincronizar')
+      else setTaskCalMsg('Guardado · sin sincronía con Calendar')
+    }
+
+    setSavingTask(false)
+    setTaskForm({ title: '', contact_id: '', date: '', time: '09:00' })
+    setTimeout(() => { setShowTaskModal(false); setTaskCalMsg('') }, 1800)
+  }
+
   function openNewDeal(stageId: string) {
     setDefaultStage(stageId)
     setEditDeal(null)
@@ -198,28 +250,28 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
     .reduce((s, d) => s + d.amount, 0)
 
   return (
-    <>
-      {/* Pipeline header bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 16,
-        padding: '10px 20px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg)',
-        flexShrink: 0,
-      }}>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          <b style={{ color: 'var(--text)' }}>{deals.filter(d => d.stage_id !== 'perdido').length}</b> deals ·{' '}
-          <b style={{ color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{formatAmount(totalPipeline)}</b> en pipeline
-        </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => { setEditDeal(null); setShowModal(true) }}>
-            <Icon name="plus" size={13} /> Nuevo deal
-          </button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <Topbar
+        crumbs={[{ label: 'Pipeline' }]}
+        actions={
+          <>
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)', marginRight: 4 }}>
+              <b style={{ color: 'var(--text)' }}>{deals.filter(d => d.stage_id !== 'perdido').length}</b> deals
+              {' · '}
+              <b style={{ color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{formatAmount(totalPipeline)}</b>
+            </span>
+            <button className="btn" onClick={() => { setTaskForm({ title: '', contact_id: '', date: '', time: '09:00' }); setTaskCalMsg(''); setShowTaskModal(true) }}>
+              <Icon name="tasks" size={13} /> Nueva tarea
+            </button>
+            <button className="btn primary" onClick={() => { setEditDeal(null); setShowModal(true) }}>
+              <Icon name="plus" size={13} /> Nuevo deal
+            </button>
+          </>
+        }
+      />
 
       {/* Kanban board */}
-      <div style={{ flex: 1, overflow: 'auto', height: 'calc(100% - 49px)' }}>
+      <div style={{ flex: 1, overflow: 'auto' }}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -236,6 +288,7 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
                   stage={stage}
                   deals={stageDeals}
                   onAddDeal={() => openNewDeal(stage.id)}
+                  onAddTask={(deal) => { setTaskForm({ title: '', contact_id: deal.contact_id ?? '', date: '', time: '09:00' }); setTaskCalMsg(''); setShowTaskModal(true) }}
                   onEditDeal={(d) => { setEditDeal(d); setShowModal(true) }}
                   onDeleteDeal={handleDeleteDeal}
                 />
@@ -249,6 +302,89 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
         </DndContext>
       </div>
 
+      {showTaskModal && (
+        <div className="modal-backdrop" onClick={() => setShowTaskModal(false)}>
+          <div className="modal" style={{ width: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="tasks" size={16} /> Nueva tarea
+              </h3>
+              <button className="btn ghost sm icon" onClick={() => setShowTaskModal(false)}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateTask}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="field-label">Nombre de la tarea</label>
+                  <input
+                    className="input"
+                    placeholder="Ej: Llamar, Reunión, Seguimiento…"
+                    value={taskForm.title}
+                    onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Contacto</label>
+                  <select
+                    className="input"
+                    value={taskForm.contact_id}
+                    onChange={e => setTaskForm(f => ({ ...f, contact_id: e.target.value }))}
+                  >
+                    <option value="">Sin contacto</option>
+                    {contacts.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.company ? ` · ${c.company}` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label className="field-label">Fecha</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={taskForm.date}
+                      onChange={e => setTaskForm(f => ({ ...f, date: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">Hora</label>
+                    <input
+                      className="input"
+                      type="time"
+                      value={taskForm.time}
+                      onChange={e => setTaskForm(f => ({ ...f, time: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                {taskForm.title && taskForm.date && (
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', background: 'var(--bg-sunken)', borderRadius: 6, padding: '8px 12px' }}>
+                    <Icon name="calendar" size={12} style={{ marginRight: 6 }} />
+                    {taskForm.title}{taskForm.contact_id ? ` · ${contacts.find(c => c.id === taskForm.contact_id)?.name}` : ''} — {taskForm.date.split('-').reverse().join('/')} a las {taskForm.time} hs
+                  </div>
+                )}
+                {taskCalMsg && (
+                  <div style={{ fontSize: 12.5, color: taskCalMsg.startsWith('✓') ? 'var(--success)' : 'var(--text-muted)', background: 'var(--bg-sunken)', borderRadius: 6, padding: '8px 12px' }}>
+                    {taskCalMsg}
+                  </div>
+                )}
+              </div>
+              <div className="modal-foot">
+                <button type="button" className="btn" onClick={() => setShowTaskModal(false)}>Cancelar</button>
+                <button type="submit" className="btn primary" disabled={savingTask || !taskForm.title || !taskForm.date}>
+                  <Icon name="check" size={13} />
+                  {savingTask ? 'Guardando…' : 'Guardar tarea'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <DealModal
           deal={editDeal}
@@ -259,6 +395,6 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
           onClose={() => { setShowModal(false); setEditDeal(null) }}
         />
       )}
-    </>
+    </div>
   )
 }
