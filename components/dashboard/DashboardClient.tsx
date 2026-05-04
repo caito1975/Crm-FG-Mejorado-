@@ -84,6 +84,7 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
   const totalWon      = wonDeals.reduce((s, d) => s + d.amount, 0)
   const openTasks     = tasks.filter(t => !t.done)
   const closeRate     = filteredDeals.length > 0 ? Math.round((wonDeals.length / filteredDeals.length) * 100) : 0
+  const lossRate      = filteredDeals.length > 0 ? Math.round((lostDeals.length / filteredDeals.length) * 100) : 0
 
   // Leads KPIs
   const activeLeads      = filteredContacts.filter(c => c.status !== 'cliente' && c.status !== 'archivado')
@@ -117,13 +118,21 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
         </div>
       </div>
 
-      {/* KPI tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      {/* KPI tiles — fila 1: inversión y cierre */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
         <StatTile
-          lbl="Pipeline abierto"
-          val={formatAmount(totalPipeline)}
-          delta={`${openDeals.length} deals`} up
-          data={sparkData}
+          lbl="Inversión estimada"
+          val={formatAmount(totalInvestment)}
+          delta={`${filteredDeals.length} deals`} up
+          data={[10,15,20,28,35,42,50,58,64]}
+          color="oklch(70% 0.13 75)"
+        />
+        <StatTile
+          lbl="Inversión ganada"
+          val={formatAmount(totalWon)}
+          delta={`${wonDeals.length} cerrados`} up
+          data={[0,2,4,6,8,12,18,24,wonDeals.length * 10]}
+          color="oklch(62% 0.14 145)"
         />
         <StatTile
           lbl={`Ganado · ${PERIOD_LABELS[period].toLowerCase()}`}
@@ -139,17 +148,10 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
           data={[24,28,30,32,34,36,38,36,38]}
           color="oklch(65% 0.13 230)"
         />
-        <StatTile
-          lbl="Nuevos contactos"
-          val={filteredContacts.length.toString()}
-          delta={`${filteredContacts.filter(c => c.status === 'cliente').length} clientes`} up
-          data={[5,8,10,12,15,16,18,20,filteredContacts.length]}
-          color="oklch(70% 0.13 75)"
-        />
       </div>
 
-      {/* KPI tiles — leads & inversión */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+      {/* KPI tiles — fila 2: leads y performance */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>
         <StatTile
           lbl="Total de leads"
           val={filteredContacts.length.toString()}
@@ -180,18 +182,19 @@ export default function DashboardClient({ userId, userName, initialContacts, ini
           color="oklch(60% 0.14 25)"
         />
         <StatTile
-          lbl="Inversión estimada"
-          val={formatAmount(totalInvestment)}
-          delta={`${filteredDeals.length} deals`} up
-          data={[10,15,20,28,35,42,50,58,64]}
+          lbl="Nuevos contactos"
+          val={filteredContacts.length.toString()}
+          delta={`${filteredContacts.filter(c => c.status === 'cliente').length} clientes`} up
+          data={[5,8,10,12,15,16,18,20,filteredContacts.length]}
           color="oklch(70% 0.13 75)"
         />
         <StatTile
-          lbl="Inversión ganada"
-          val={formatAmount(totalWon)}
-          delta={`${wonDeals.length} cerrados`} up
-          data={[0,2,4,6,8,12,18,24,wonDeals.length * 10]}
-          color="oklch(62% 0.14 145)"
+          lbl="Tasa de pérdida"
+          val={`${lossRate}%`}
+          delta={`${lostDeals.length} perdidos`}
+          up={lossRate === 0}
+          data={[0,1,2,2,3,3,2,2,lostDeals.length]}
+          color="oklch(60% 0.14 25)"
         />
       </div>
 
