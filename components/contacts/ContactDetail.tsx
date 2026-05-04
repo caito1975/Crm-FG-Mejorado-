@@ -130,7 +130,7 @@ export default function ContactDetail({ userId, contact: initialContact, initial
     const act: Activity = {
       id: crypto.randomUUID(), created_at: new Date().toISOString(),
       user_id: userId, kind: 'email_out', who: 'tú',
-      body: compose.subject, contact_id: contact.id,
+      body: compose.subject, contact_id: contact.id, deal_id: null,
     }
     setActivities(as => [act, ...as])
     setCompose({ subject: '', body: '' })
