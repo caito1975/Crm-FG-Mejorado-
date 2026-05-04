@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Contact, ContactStatus } from '@/lib/types'
@@ -10,16 +10,18 @@ import { StatusPill, TagPill } from '@/components/ui/Pill'
 import ContactModal from './ContactModal'
 
 const STATUS_FILTERS: { label: string; value: ContactStatus | 'all' }[] = [
-  { label: 'Todos',        value: 'all' },
-  { label: 'Leads',        value: 'lead' },
-  { label: 'Enviados',     value: 'enviado' },
-  { label: 'No enviados',  value: 'no_enviado' },
-  { label: 'Interesados',  value: 'interesado' },
-  { label: 'Enviar Mail',  value: 'enviar_mail' },
+  { label: 'Todos',         value: 'all' },
+  { label: 'Leads',         value: 'lead' },
+  { label: 'Enviados',      value: 'enviado' },
+  { label: 'No enviados',   value: 'no_enviado' },
+  { label: 'Interesados',   value: 'interesado' },
+  { label: 'Enviar Mail',   value: 'enviar_mail' },
   { label: 'Oportunidades', value: 'oportunidad' },
-  { label: 'Clientes',     value: 'cliente' },
-  { label: 'Archivados',   value: 'archivado' },
+  { label: 'Clientes',      value: 'cliente' },
+  { label: 'Archivados',    value: 'archivado' },
 ]
+
+type VendorOption = { member_user_id: string; name: string; role: string }
 
 interface Props {
   userId: string
@@ -32,11 +34,33 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
   const router = useRouter()
   const supabase = createClient()
   const { formatAmount } = useCurrency()
-  const [contacts, setContacts]     = useState(initialContacts)
-  const [search, setSearch]         = useState('')
+
+  const [contacts, setContacts]         = useState(initialContacts)
+  const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
-  const [showModal, setShowModal]   = useState(false)
-  const [editContact, setEditContact] = useState<Contact | null>(null)
+  const [showModal, setShowModal]       = useState(false)
+  const [editContact, setEditContact]   = useState<Contact | null>(null)
+
+  // Bulk assignment state
+  const [selected, setSelected]         = useState<Set<string>>(new Set())
+  const [vendors, setVendors]           = useState<VendorOption[]>([])
+  const [bulkVendorId, setBulkVendorId] = useState('')
+  const [assigning, setAssigning]       = useState(false)
+
+  // Load vendors for bulk assignment (owner only)
+  useEffect(() => {
+    if (!isOwner) return
+    supabase
+      .from('team_members')
+      .select('member_user_id, name, role')
+      .eq('owner_id', userId)
+      .eq('status', 'activo')
+      .not('member_user_id', 'is', null)
+      .order('name')
+      .then(({ data }) => {
+        if (data) setVendors(data as VendorOption[])
+      })
+  }, [isOwner, userId])
 
   const filtered = contacts.filter(c => {
     const matchStatus = statusFilter === 'all' || c.status === statusFilter
@@ -46,6 +70,74 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
     return matchStatus && matchSearch
   })
 
+  const allFilteredSelected = filtered.length > 0 && filtered.every(c => selected.has(c.id))
+
+  function toggleAll() {
+    if (allFilteredSelected) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        filtered.forEach(c => next.delete(c.id))
+        return next
+      })
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev)
+        filtered.forEach(c => next.add(c.id))
+        return next
+      })
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkVendorId || selected.size === 0) return
+    const vendor = vendors.find(v => v.member_user_id === bulkVendorId)
+    if (!vendor) return
+
+    setAssigning(true)
+    const ids = Array.from(selected)
+
+    const { data: updated } = await supabase
+      .from('contacts')
+      .update({ assigned_to: bulkVendorId, owner_name: vendor.name })
+      .in('id', ids)
+      .select('id, name, phone, status')
+
+    if (updated) {
+      // Update local state
+      setContacts(cs => cs.map(c =>
+        selected.has(c.id) ? { ...c, assigned_to: bulkVendorId, owner_name: vendor.name } : c
+      ))
+
+      // Historial batch insert
+      const historial = (updated as { id: string; name: string; phone: string | null; status: string }[])
+        .map(c => ({
+          user_id:        userId,
+          fecha:          new Date().toISOString(),
+          nombre:         c.name,
+          numero:         c.phone ?? null,
+          tipo:           'ASIGNACION' as const,
+          mensaje:        `Asignación masiva a ${vendor.name}`,
+          etapa_anterior: c.status,
+          etapa_nueva:    c.status,
+          vendedor:       vendor.name,
+          contact_id:     c.id,
+        }))
+      await supabase.from('historial_leads').insert(historial)
+    }
+
+    setSelected(new Set())
+    setBulkVendorId('')
+    setAssigning(false)
+  }
+
   async function handleSave(data: Partial<Contact>) {
     if (editContact) {
       const { data: updated } = await supabase
@@ -53,7 +145,6 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
       if (updated) {
         setContacts(cs => cs.map(c => c.id === editContact.id ? updated as Contact : c))
         const c = updated as Contact
-        // Registrar cambio de estado
         if (data.status && data.status !== editContact.status) {
           await supabase.from('historial_leads').insert({
             user_id:        userId,
@@ -68,7 +159,6 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
             contact_id:     c.id,
           })
         }
-        // Registrar reasignación de vendedor
         if (data.owner_name && data.owner_name !== editContact.owner_name) {
           await supabase.from('historial_leads').insert({
             user_id:        userId,
@@ -121,10 +211,16 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
         <div className="page-head">
           <div>
             <h1>Contactos</h1>
-            <p>{contacts.length} contactos · {contacts.filter(c => c.status === 'cliente').length} clientes</p>
+            <p>
+              {contacts.length} contactos · {contacts.filter(c => c.status === 'cliente').length} clientes
+              {isOwner && contacts.filter(c => !c.assigned_to).length > 0 && (
+                <span style={{ color: 'var(--warning)', marginLeft: 8 }}>
+                  · {contacts.filter(c => !c.assigned_to).length} sin asignar
+                </span>
+              )}
+            </p>
           </div>
           <div className="page-actions">
-            {/* Search */}
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-subtle)' }}>
                 <Icon name="search" size={13} />
@@ -137,10 +233,7 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <button
-              className="btn primary"
-              onClick={() => { setEditContact(null); setShowModal(true) }}
-            >
+            <button className="btn primary" onClick={() => { setEditContact(null); setShowModal(true) }}>
               <Icon name="plus" size={13} /> Nuevo contacto
             </button>
           </div>
@@ -167,6 +260,17 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
           <table className="tbl">
             <thead>
               <tr>
+                {isOwner && (
+                  <th style={{ width: 36, paddingRight: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={toggleAll}
+                      style={{ cursor: 'pointer' }}
+                      title={allFilteredSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                    />
+                  </th>
+                )}
                 <th>Contacto</th>
                 <th>Empresa</th>
                 <th>Website</th>
@@ -175,7 +279,7 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
                 <th>Ciudad</th>
                 <th>Último contacto</th>
                 <th>Valor</th>
-                <th>Tags</th>
+                <th>Asignado a</th>
                 <th></th>
               </tr>
             </thead>
@@ -183,9 +287,22 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
               {filtered.map(c => (
                 <tr
                   key={c.id}
-                  style={{ cursor: 'default' }}
+                  style={{
+                    cursor: 'default',
+                    background: selected.has(c.id) ? 'var(--bg-hover)' : undefined,
+                  }}
                   onClick={() => router.push(`/contacts/${c.id}`)}
                 >
+                  {isOwner && (
+                    <td style={{ paddingRight: 0 }} onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(c.id)}
+                        onChange={() => toggleOne(c.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
+                  )}
                   <td>
                     <div className="row-pic">
                       <Avatar name={c.name} tone="accent" />
@@ -198,7 +315,7 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
                   <td className="cell-muted">{c.company || '—'}</td>
                   <td className="cell-muted">
                     {c.website
-                      ? <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 12 }}>
+                      ? <a href={c.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 12 }} onClick={e => e.stopPropagation()}>
                           {c.website.replace(/^https?:\/\//, '')}
                         </a>
                       : '—'}
@@ -212,24 +329,20 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
                   <td className="cell-mono">
                     {c.value ? formatAmount(c.value) : '—'}
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      {c.tags.slice(0, 2).map(t => <TagPill key={t} tag={t} />)}
-                    </div>
+                  <td className="cell-muted">
+                    {c.owner_name
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+                          {c.owner_name}
+                        </span>
+                      : <span style={{ color: 'var(--warning)', fontSize: 11.5 }}>Sin asignar</span>}
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                      <button
-                        className="btn ghost sm icon"
-                        onClick={() => { setEditContact(c); setShowModal(true) }}
-                      >
+                      <button className="btn ghost sm icon" onClick={() => { setEditContact(c); setShowModal(true) }}>
                         <Icon name="edit" size={13} />
                       </button>
-                      <button
-                        className="btn ghost sm icon"
-                        onClick={() => handleDelete(c.id)}
-                        style={{ color: 'var(--danger)' }}
-                      >
+                      <button className="btn ghost sm icon" onClick={() => handleDelete(c.id)} style={{ color: 'var(--danger)' }}>
                         <Icon name="trash" size={13} />
                       </button>
                     </div>
@@ -246,6 +359,69 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
           )}
         </div>
       </div>
+
+      {/* ── Bulk assignment bar ─────────────────────────────────────── */}
+      {isOwner && selected.size > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: 28,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '10px 16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          minWidth: 420,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--accent)', color: '#fff',
+              borderRadius: 6, padding: '1px 7px', fontSize: 12, marginRight: 7,
+            }}>{selected.size}</span>
+            {selected.size === 1 ? 'contacto seleccionado' : 'contactos seleccionados'}
+          </span>
+
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+          <Icon name="team" size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <select
+            className="input"
+            style={{ flex: 1, minWidth: 160, height: 32, padding: '0 8px', fontSize: 13 }}
+            value={bulkVendorId}
+            onChange={e => setBulkVendorId(e.target.value)}
+          >
+            <option value="">Asignar a…</option>
+            {vendors.map(v => (
+              <option key={v.member_user_id} value={v.member_user_id}>
+                {v.name}{v.role ? ` · ${v.role}` : ''}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="btn primary"
+            style={{ height: 32, padding: '0 14px', fontSize: 13, whiteSpace: 'nowrap' }}
+            disabled={!bulkVendorId || assigning}
+            onClick={handleBulkAssign}
+          >
+            {assigning ? 'Asignando…' : 'Asignar'}
+          </button>
+
+          <button
+            className="btn"
+            style={{ height: 32, padding: '0 10px', fontSize: 13 }}
+            onClick={() => { setSelected(new Set()); setBulkVendorId('') }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
 
       {showModal && (
         <ContactModal
