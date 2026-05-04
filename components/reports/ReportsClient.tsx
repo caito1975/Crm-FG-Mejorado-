@@ -337,7 +337,7 @@ export default function ReportsClient({ deals, contacts, stages }: Props) {
                         <CartesianGrid vertical={false} stroke="var(--border)" />
                         <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} angle={-20} textAnchor="end" interval={0} />
                         <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-active)' }} formatter={(v: number) => [v, 'Deals']} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-active)' }} formatter={(v: any) => [v, 'Deals']} />
                         <Bar dataKey="count" name="Deals" radius={[4, 4, 0, 0]} maxBarSize={56} fill="#38bdf8">
                           <LabelList dataKey="count" position="top" style={{ fontSize: 12, fontWeight: 600, fill: 'var(--text)' }} />
                         </Bar>
@@ -409,7 +409,7 @@ export default function ReportsClient({ deals, contacts, stages }: Props) {
                         <YAxis dataKey="name" type="category" width={140}
                           tick={{ fontSize: 11, fill: 'var(--text-muted)', fontWeight: 500 }}
                           axisLine={false} tickLine={false} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-active)' }} formatter={(v: number) => [v, 'Leads']} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-active)' }} formatter={(v: any) => [v, 'Leads']} />
                         <Bar dataKey="value" name="Leads" radius={[0, 4, 4, 0]} maxBarSize={26} fill="#818cf8">
                           <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: 'var(--text)' }} />
                         </Bar>
