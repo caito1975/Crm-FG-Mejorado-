@@ -74,10 +74,15 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
       } else {
         // Sync contact status to reflect pipeline position
         if (deal.contact_id) {
-          const contactStatus: ContactStatus =
-            targetStage === 'ganado'  ? 'cliente'
-            : targetStage === 'perdido' ? 'archivado'
-            : 'oportunidad'
+          const STAGE_TO_STATUS: Record<string, ContactStatus> = {
+            ganado:      'cliente',
+            perdido:     'archivado',
+            enviado:     'enviado',
+            enviar_mail: 'enviar_mail',
+            interesado:  'interesado',
+            oportunidad: 'oportunidad',
+          }
+          const contactStatus: ContactStatus = STAGE_TO_STATUS[targetStage] ?? 'oportunidad'
           await supabase.from('contacts').update({ status: contactStatus }).eq('id', deal.contact_id)
         }
         // Log activity
