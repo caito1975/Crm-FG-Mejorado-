@@ -75,7 +75,7 @@ export default function Sidebar({
           <img
             src="/logo.png"
             alt="FG Medios"
-            style={{ height: 28, maxWidth: '100%', objectFit: 'contain' }}
+            style={{ height: 40, maxWidth: '100%', objectFit: 'contain' }}
           />
           <span className="workspace-chev" style={{ color: 'rgba(255,255,255,.4)', marginLeft: 'auto' }}>
             <Icon name="chev_down" size={13} />
