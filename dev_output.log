@@ -89,3 +89,15 @@ digest: "1472193778"
  ✓ Compiled /login in 493ms (920 modules)
  ✓ Compiled /contacts in 447ms (920 modules)
  ✓ Compiled /contacts/[id] in 321ms (925 modules)
+ GET /login 200 in 297ms
+ ○ Compiling /team ...
+ ✓ Compiled /team in 908ms (1280 modules)
+ ✓ Compiled in 260ms (862 modules)
+ ✓ Compiled /api/integrations/calendar/create in 218ms (446 modules)
+ POST /api/integrations/calendar/create 200 in 1206ms
+ ✓ Compiled /calendar in 133ms (451 modules)
+ ✓ Compiled /inbox in 179ms (429 modules)
+ ○ Compiling /reports ...
+ ✓ Compiled /reports in 747ms (936 modules)
+ ✓ Compiled /login in 332ms (910 modules)
+ ✓ Compiled /pipeline in 124ms (919 modules)

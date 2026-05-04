@@ -21,7 +21,14 @@ const STATUS_FILTERS: { label: string; value: ContactStatus | 'all' }[] = [
   { label: 'Archivados',   value: 'archivado' },
 ]
 
-export default function ContactsTable({ userId, initialContacts }: { userId: string; initialContacts: Contact[] }) {
+interface Props {
+  userId: string
+  initialContacts: Contact[]
+  isOwner?: boolean
+  vendorId?: string
+}
+
+export default function ContactsTable({ userId, initialContacts, isOwner = true, vendorId }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const { formatAmount } = useCurrency()
@@ -78,8 +85,9 @@ export default function ContactsTable({ userId, initialContacts }: { userId: str
         }
       }
     } else {
+      const autoAssign = !isOwner && vendorId ? { assigned_to: vendorId } : {}
       const { data: created } = await supabase
-        .from('contacts').insert({ ...data, user_id: userId }).select().single()
+        .from('contacts').insert({ ...data, ...autoAssign, user_id: userId }).select().single()
       if (created) {
         setContacts(cs => [created as Contact, ...cs])
         const c = created as Contact
@@ -244,6 +252,7 @@ export default function ContactsTable({ userId, initialContacts }: { userId: str
           contact={editContact}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditContact(null) }}
+          isOwner={isOwner}
         />
       )}
     </>

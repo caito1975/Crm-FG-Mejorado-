@@ -5,50 +5,70 @@ import type { Contact, ContactStatus, Rubro } from '@/lib/types'
 import { RUBROS } from '@/lib/types'
 import Icon from '@/components/ui/Icon'
 
-type MemberOption = { id: string; name: string; role: string }
+type MemberOption = { team_member_id: string; member_user_id: string; name: string; role: string }
 
 interface Props {
   contact: Contact | null
   onSave: (data: Partial<Contact>) => void
   onClose: () => void
+  isOwner?: boolean
 }
 
-export default function ContactModal({ contact, onSave, onClose }: Props) {
+export default function ContactModal({ contact, onSave, onClose, isOwner = true }: Props) {
   const supabase = createClient()
   const [teamMembers, setTeamMembers] = useState<MemberOption[]>([])
 
   const [form, setForm] = useState({
-    name:       contact?.name       || '',
-    company:    contact?.company    || '',
-    role:       contact?.role       || '',
-    email:      contact?.email      || '',
-    phone:      contact?.phone      || '',
-    city:       contact?.city       || '',
-    status:     contact?.status     || 'lead' as ContactStatus,
-    rubro:      contact?.rubro      || '' as Rubro | '',
-    value:      contact?.value      || 0,
-    tags:       contact?.tags?.join(', ') || '',
-    owner_name: contact?.owner_name || '',
-    website:    contact?.website    || '',
+    name:        contact?.name        || '',
+    company:     contact?.company     || '',
+    role:        contact?.role        || '',
+    email:       contact?.email       || '',
+    phone:       contact?.phone       || '',
+    city:        contact?.city        || '',
+    status:      contact?.status      || 'lead' as ContactStatus,
+    rubro:       contact?.rubro       || '' as Rubro | '',
+    value:       contact?.value       || 0,
+    tags:        contact?.tags?.join(', ') || '',
+    owner_name:  contact?.owner_name  || '',
+    assigned_to: contact?.assigned_to || '' as string | '',
+    website:     contact?.website     || '',
   })
 
   useEffect(() => {
     supabase
       .from('team_members')
-      .select('id, name, role')
-      .neq('status', 'inactivo')
+      .select('id, name, role, member_user_id')
+      .eq('status', 'activo')
+      .not('member_user_id', 'is', null)
       .order('name')
-      .then(({ data }) => { if (data) setTeamMembers(data as MemberOption[]) })
+      .then(({ data }) => {
+        if (data) setTeamMembers(data.map(m => ({
+          team_member_id: m.id,
+          member_user_id: m.member_user_id,
+          name: m.name,
+          role: m.role,
+        })))
+      })
   }, [])
+
+  function handleMemberChange(memberUserId: string) {
+    const member = teamMembers.find(m => m.member_user_id === memberUserId)
+    setForm(f => ({
+      ...f,
+      assigned_to: memberUserId,
+      owner_name: member?.name || '',
+    }))
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     onSave({
       ...form,
-      rubro: (form.rubro || null) as Rubro | null,
-      value: Number(form.value),
-      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-      last_touch: new Date().toISOString(),
+      rubro:       (form.rubro || null) as Rubro | null,
+      value:       Number(form.value),
+      tags:        form.tags.split(',').map(t => t.trim()).filter(Boolean),
+      assigned_to: form.assigned_to || null,
+      last_touch:  new Date().toISOString(),
     })
   }
 
@@ -109,21 +129,23 @@ export default function ContactModal({ contact, onSave, onClose }: Props) {
                 <label>Valor estimado ($)</label>
                 <input className="input" type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: Number(e.target.value) }))} />
               </div>
-              <div className="field">
-                <label>Owner / Vendedor</label>
-                <select
-                  className="input"
-                  value={form.owner_name}
-                  onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))}
-                >
-                  <option value="">— Sin asignar —</option>
-                  {teamMembers.map(m => (
-                    <option key={m.id} value={m.name}>
-                      {m.name}{m.role ? ` · ${m.role}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isOwner && (
+                <div className="field">
+                  <label>Asignado a</label>
+                  <select
+                    className="input"
+                    value={form.assigned_to}
+                    onChange={e => handleMemberChange(e.target.value)}
+                  >
+                    <option value="">— Sin asignar —</option>
+                    {teamMembers.map(m => (
+                      <option key={m.member_user_id} value={m.member_user_id}>
+                        {m.name}{m.role ? ` · ${m.role}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Website</label>

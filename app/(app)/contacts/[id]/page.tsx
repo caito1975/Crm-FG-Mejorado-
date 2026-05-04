@@ -10,7 +10,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { workspaceId } = await getWorkspaceOwnerId(supabase, user)
+  const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
 
   const [
     { data: contact },
@@ -36,6 +36,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
           initialDeals={(deals as Deal[]) ?? []}
           initialTasks={(tasks as Task[]) ?? []}
           initialActivities={(activities as Activity[]) ?? []}
+          isOwner={isOwner}
         />
       </div>
     </>

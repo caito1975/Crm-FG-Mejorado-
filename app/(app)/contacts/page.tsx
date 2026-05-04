@@ -10,10 +10,12 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { workspaceId } = await getWorkspaceOwnerId(supabase, user)
+  const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
 
-  const { data: contacts } = await supabase
-    .from('contacts').select('*').eq('user_id', workspaceId).order('name')
+  let query = supabase.from('contacts').select('*').eq('user_id', workspaceId).order('name')
+  // RLS handles vendor filtering automatically — no extra filter needed here
+
+  const { data: contacts } = await query
 
   return (
     <>
@@ -22,7 +24,12 @@ export default async function ContactsPage() {
         actions={<button className="btn primary" id="new-contact-btn">+ Nuevo contacto</button>}
       />
       <div className="view">
-        <ContactsTable userId={workspaceId} initialContacts={(contacts as Contact[]) ?? []} />
+        <ContactsTable
+          userId={workspaceId}
+          initialContacts={(contacts as Contact[]) ?? []}
+          isOwner={isOwner}
+          vendorId={isOwner ? undefined : user.id}
+        />
       </div>
     </>
   )

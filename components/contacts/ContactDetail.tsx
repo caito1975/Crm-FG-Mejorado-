@@ -33,9 +33,10 @@ interface Props {
   initialDeals: Deal[]
   initialTasks: Task[]
   initialActivities: Activity[]
+  isOwner?: boolean
 }
 
-export default function ContactDetail({ userId, contact: initialContact, initialDeals, initialTasks, initialActivities }: Props) {
+export default function ContactDetail({ userId, contact: initialContact, initialDeals, initialTasks, initialActivities, isOwner = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [contact, setContact]     = useState(initialContact)
@@ -393,6 +394,7 @@ export default function ContactDetail({ userId, contact: initialContact, initial
           contact={contact}
           onSave={handleSaveContact}
           onClose={() => setShowEdit(false)}
+          isOwner={isOwner}
         />
       )}
 

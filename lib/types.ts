@@ -60,6 +60,7 @@ export interface Contact {
   last_touch: string | null
   owner_name: string | null
   value: number
+  assigned_to: string | null
 }
 
 export interface Deal {
@@ -75,6 +76,7 @@ export interface Deal {
   owner_name: string | null
   position: number
   contact?: Contact
+  assigned_to: string | null
 }
 
 export interface Task {
