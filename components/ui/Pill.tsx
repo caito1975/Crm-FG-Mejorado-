@@ -8,6 +8,7 @@ const STATUS_MAP: Record<ContactStatus, { cls: string; label: string }> = {
   archivado:   { cls: '',        label: 'Archivado' },
   enviado:     { cls: 'warning', label: 'Enviado' },
   no_enviado:  { cls: 'danger',  label: 'No enviado' },
+  enviar_mail: { cls: 'info',    label: 'Enviar mail' },
 }
 
 const PRIORITY_MAP: Record<TaskPriority, string> = {
