@@ -1,0 +1,689 @@
+{
+  "name": "CAROSIA CRM-02 - Receptor Respuestas Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## CRM-02: RECEPTOR DE RESPUESTAS WhatsApp\n### Supabase Edition\n\n**Flujo cuando un lead responde por WA:**\n1. Extrae número + texto del webhook Evolution API\n2. Busca el contacto en Supabase por teléfono\n3. Si encontrado → cambia `status` a `interesado` + `last_touch`\n4. Round-robin entre vendedores activos (excluye admins, menor `deals_count`)\n5. Actualiza `owner_name` del contacto\n6. Incrementa `deals_count` del vendedor asignado\n7. Registra actividad en tabla `activities`\n8. Inserta mensaje en tabla `inbox_messages` del CRM\n9. Notifica al vendedor asignado vía WhatsApp\n10. Notifica al dueño del CRM\n\n**⚠️ Ejecutar en Supabase SQL Editor antes de activar:**\n```sql\nALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_status_check;\nALTER TABLE contacts ADD CONSTRAINT contacts_status_check\n  CHECK (status IN ('cliente','oportunidad','lead','archivado','enviado','no_enviado','interesado'));\n```",
+        "height": 500,
+        "width": 580,
+        "color": 4
+      },
+      "id": "c02s-sticky",
+      "name": "Header",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-receptor-crm",
+        "options": {}
+      },
+      "id": "c02s-webhook",
+      "name": "Webhook - Mensaje Entrante",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        400,
+        304
+      ],
+      "webhookId": "b5e8f1a2-receptor-wa-supabase-v1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.item.json;\nconst body = raw.body || raw;\n\n// Evolution API webhookBase64:true sends body.data as base64-encoded JSON string\nlet msgData;\nlet rawData = body.data;\n\nif (typeof rawData === 'string') {\n  try {\n    rawData = JSON.parse(Buffer.from(rawData, 'base64').toString('utf8'));\n  } catch(e) {\n    // not valid base64-JSON, leave as string — will fall through below\n  }\n}\n\nif (rawData && typeof rawData === 'object' && rawData.key) {\n  msgData = rawData;\n} else if (rawData && rawData.messages && rawData.messages.length > 0) {\n  msgData = rawData.messages[0];\n} else if (Array.isArray(rawData) && rawData.length > 0) {\n  msgData = rawData[0];\n} else {\n  msgData = body;\n}\n\nconst key = msgData.key || {};\nconst remoteJid = key.remoteJid || '';\nconst fromMe = key.fromMe === true;\nconst isGroup = remoteJid.indexOf('@g.us') !== -1;\n\n// Drop own messages, groups, and empty senders\nif (fromMe || isGroup || !remoteJid) { return []; }\n\nconst message = msgData.message || {};\nconst texto = message.conversation\n  || (message.extendedTextMessage && message.extendedTextMessage.text)\n  || (message.imageMessage && message.imageMessage.caption)\n  || (message.videoMessage && message.videoMessage.caption)\n  || (message.audioMessage ? '[audio]' : null)\n  || (message.documentMessage ? '[documento: ' + (message.documentMessage.fileName || 'archivo') + ']' : null)\n  || (message.stickerMessage ? '[sticker]' : null)\n  || (message.listResponseMessage && message.listResponseMessage.title)\n  || '[media]';\n\nconst pushName = msgData.pushName || '';\nconst numero = remoteJid.replace('@s.whatsapp.net', '').replace(/^[+]/, '');\n\n// Safety: drop if phone empty\nif (!numero) { return []; }\n\nconst fecha_respuesta = new Date().toISOString();\n\nreturn [{ json: { numero, texto, nombre_remitente: pushName, fecha_respuesta } }];"
+      },
+      "id": "c02s-extract",
+      "name": "Extraer y Filtrar Mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,phone,status,user_id,owner_name,rubro"
+            },
+            {
+              "name": "phone",
+              "value": "={{ 'ilike.*' + $json.numero.slice(-10) + '*' }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c02s-search",
+      "name": "Buscar Contacto Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        304
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n HTTP Request v4.2 splits Supabase array into individual items\nconst items = $input.all();\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nif (items.length === 0 || !items[0].json.id) {\n  return [{ json: {\n    found: false,\n    numero: ex.numero,\n    nombre_remitente: ex.nombre_remitente,\n    texto: ex.texto,\n    fecha_respuesta: ex.fecha_respuesta\n  } }];\n}\n\nconst c = items[0].json;\nreturn [{ json: {\n  found: true,\n  contact_id: c.id,\n  name: c.name,\n  phone: c.phone,\n  status: c.status,\n  user_id: c.user_id,\n  owner_name: c.owner_name || '',\n  rubro: c.rubro || '',\n  numero: ex.numero,\n  texto: ex.texto,\n  nombre_remitente: ex.nombre_remitente,\n  fecha_respuesta: ex.fecha_respuesta\n} }];"
+      },
+      "id": "c02s-verify",
+      "name": "Verificar Contacto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c02s-if-found",
+      "name": "Lead Encontrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ status: 'interesado', last_touch: $json.fecha_respuesta }) }}",
+        "options": {}
+      },
+      "id": "c02s-update-status",
+      "name": "Actualizar Status Interesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/team_members",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,phone,permission,deals_count,status"
+            },
+            {
+              "name": "status",
+              "value": "eq.activo"
+            },
+            {
+              "name": "permission",
+              "value": "neq.admin"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c02s-read-vendors",
+      "name": "Leer Vendedores Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        160
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// n8n splits Supabase array into individual items — use $input.all()\nconst items = $input.all();\nconst contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst vendors = items\n  .map(i => i.json)\n  .filter(v => v.id && v.permission !== 'admin');\n\nif (vendors.length === 0) {\n  return [{ json: { assigned: false, contact_id: contact.contact_id, user_id: contact.user_id } }];\n}\n\nconst minDeals = Math.min(...vendors.map(v => Number(v.deals_count) || 0));\nconst candidates = vendors.filter(v => (Number(v.deals_count) || 0) === minDeals);\nconst vendor = candidates[Math.floor(Math.random() * candidates.length)];\n\nconst vendorPhone = String(vendor.phone || '').replace(/\\D/g, '');\n\nconst waVendorText = 'Hola ' + vendor.name + '! Te asignaron un nuevo lead que respondio.\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Telefono:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || '-') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + 'Revisa el CRM para gestionar el lead.';\n\nconst waOwnerText = 'LEAD RESPONDIO\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Numero:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || 'Sin clasificar') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + '*Vendedor asignado:* ' + vendor.name;\n\nconst inboxBody = 'Respuesta WhatsApp recibida\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Telefono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje del lead:\\n\"' + ex.texto + '\"\\n\\n'\n  + 'Vendedor asignado: ' + vendor.name;\n\nreturn [{ json: {\n  assigned: true,\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: contact.user_id,\n  vendor_id: vendor.id,\n  vendor_name: vendor.name,\n  vendor_phone: vendorPhone,\n  vendor_deals_ant: Number(vendor.deals_count) || 0,\n  fecha_respuesta: ex.fecha_respuesta,\n  wa_vendor_text: waVendorText,\n  wa_owner_text: waOwnerText,\n  inbox_body: inboxBody,\n  inbox_preview: ex.texto.substring(0, 120),\n  inbox_subject: 'WhatsApp de ' + contact.name + (contact.rubro ? ' · ' + contact.rubro : '')\n} }];"
+      },
+      "id": "c02s-roundrobin",
+      "name": "Asignar Round-Robin",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-vendor",
+              "leftValue": "={{ $json.assigned }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c02s-if-vendor",
+      "name": "Hay Vendedor?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ owner_name: $json.vendor_name }) }}",
+        "options": {}
+      },
+      "id": "c02s-update-owner",
+      "name": "Actualizar Owner Contacto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3280,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/team_members?id=eq.' + $('Asignar Round-Robin').first().json.vendor_id }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ deals_count: $('Asignar Round-Robin').first().json.vendor_deals_ant + 1 }) }}",
+        "options": {}
+      },
+      "id": "c02s-increment-vendor",
+      "name": "Incrementar Deals Vendedor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, kind: 'email_in', who: $('Asignar Round-Robin').first().json.contact_name, body: 'Respondio por WhatsApp: ' + $('Asignar Round-Robin').first().json.inbox_preview, contact_id: $('Asignar Round-Robin').first().json.contact_id }) }}",
+        "options": {}
+      },
+      "id": "c02s-activity",
+      "name": "Registrar Actividad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/inbox_messages",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, from_name: $('Asignar Round-Robin').first().json.contact_name, subject: $('Asignar Round-Robin').first().json.inbox_subject, preview: $('Asignar Round-Robin').first().json.inbox_preview, body: $('Asignar Round-Robin').first().json.inbox_body, sent_label: 'Ahora', unread: true, starred: false, labels: ['whatsapp', 'interesado'] }) }}",
+        "options": {}
+      },
+      "id": "c02s-inbox",
+      "name": "Insertar Inbox CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ number: $('Asignar Round-Robin').first().json.vendor_phone, text: $('Asignar Round-Robin').first().json.wa_vendor_text }) }}",
+        "options": {}
+      },
+      "id": "c02s-notify-vendor",
+      "name": "Notificar Vendedor WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ number: '5491155072395', text: $('Asignar Round-Robin').first().json.wa_owner_text }) }}",
+        "options": {}
+      },
+      "id": "c02s-notify-owner",
+      "name": "Notificar Owner WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4880,
+        160
+      ],
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Mensaje Entrante": {
+      "main": [
+        [
+          {
+            "node": "Extraer y Filtrar Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer y Filtrar Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contacto Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contacto Supabase": {
+      "main": [
+        [
+          {
+            "node": "Verificar Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Contacto": {
+      "main": [
+        [
+          {
+            "node": "Lead Encontrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Encontrado?": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Status Interesado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Actualizar Status Interesado": {
+      "main": [
+        [
+          {
+            "node": "Leer Vendedores Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Vendedores Supabase": {
+      "main": [
+        [
+          {
+            "node": "Asignar Round-Robin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asignar Round-Robin": {
+      "main": [
+        [
+          {
+            "node": "Hay Vendedor?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay Vendedor?": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Owner Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Actualizar Owner Contacto": {
+      "main": [
+        [
+          {
+            "node": "Incrementar Deals Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incrementar Deals Vendedor": {
+      "main": [
+        [
+          {
+            "node": "Registrar Actividad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Actividad": {
+      "main": [
+        [
+          {
+            "node": "Insertar Inbox CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Inbox CRM": {
+      "main": [
+        [
+          {
+            "node": "Notificar Vendedor WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Vendedor WA": {
+      "main": [
+        [
+          {
+            "node": "Notificar Owner WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "crm-02-receptor-supabase-v1",
+  "meta": {
+    "instanceId": "cperilli-app-n8n-cloud"
+  },
+  "id": "crm-02-receptor-supabase-v1",
+  "tags": [
+    "CRM",
+    "WhatsApp",
+    "Receptor",
+    "Supabase"
+  ]
+}
