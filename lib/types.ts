@@ -123,6 +123,24 @@ export interface TeamMember {
   joined_label: string | null
 }
 
+export type HistorialTipo = 'ASIGNACION' | 'CAMBIO_ESTADO' | 'NOTA' | 'LLAMADA' | 'EMAIL'
+
+export interface HistorialLead {
+  id: string
+  created_at: string
+  user_id: string
+  fecha: string
+  nombre: string
+  numero: string | null
+  tipo: HistorialTipo
+  mensaje: string | null
+  etapa_anterior: string | null
+  etapa_nueva: string | null
+  vendedor: string | null
+  notas: string | null
+  contact_id: string | null
+}
+
 export interface InboxMessage {
   id: string
   created_at: string

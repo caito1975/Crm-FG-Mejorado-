@@ -39,7 +39,7 @@ export default function ContactDetail({ userId, contact: initialContact, initial
   const router = useRouter()
   const supabase = createClient()
   const [contact, setContact]     = useState(initialContact)
-  const [deals, setDeals]         = useState(initialDeals)
+  const [deals]                   = useState(initialDeals)
   const [tasks, setTasks]         = useState(initialTasks)
   const [activities, setActivities] = useState(initialActivities)
   const [tab, setTab]             = useState<Tab>('actividad')
@@ -50,7 +50,38 @@ export default function ContactDetail({ userId, contact: initialContact, initial
 
   async function handleSaveContact(data: Partial<Contact>) {
     const { data: updated } = await supabase.from('contacts').update(data).eq('id', contact.id).select().single()
-    if (updated) setContact(updated as Contact)
+    if (updated) {
+      setContact(updated as Contact)
+      const c = updated as Contact
+      if (data.status && data.status !== contact.status) {
+        await supabase.from('historial_leads').insert({
+          user_id:        userId,
+          fecha:          new Date().toISOString(),
+          nombre:         c.name,
+          numero:         c.phone ?? null,
+          tipo:           'CAMBIO_ESTADO',
+          mensaje:        `Estado cambiado a ${data.status}`,
+          etapa_anterior: contact.status,
+          etapa_nueva:    data.status,
+          vendedor:       c.owner_name ?? null,
+          contact_id:     c.id,
+        })
+      }
+      if (data.owner_name && data.owner_name !== contact.owner_name) {
+        await supabase.from('historial_leads').insert({
+          user_id:        userId,
+          fecha:          new Date().toISOString(),
+          nombre:         c.name,
+          numero:         c.phone ?? null,
+          tipo:           'ASIGNACION',
+          mensaje:        `Asignado a ${data.owner_name}`,
+          etapa_anterior: c.status,
+          etapa_nueva:    c.status,
+          vendedor:       data.owner_name,
+          contact_id:     c.id,
+        })
+      }
+    }
     setShowEdit(false)
   }
 

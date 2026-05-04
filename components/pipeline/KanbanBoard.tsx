@@ -100,6 +100,21 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
           deal_id: deal.id,
           contact_id: deal.contact_id,
         })
+        const contactInfo = contacts.find(c => c.id === deal.contact_id)
+        if (contactInfo) {
+          await supabase.from('historial_leads').insert({
+            user_id:        userId,
+            fecha:          new Date().toISOString(),
+            nombre:         contactInfo.name,
+            numero:         null,
+            tipo:           'CAMBIO_ESTADO',
+            mensaje:        `Deal movido a "${stages.find(s => s.id === targetStage)?.label}"`,
+            etapa_anterior: (STAGE_TO_STATUS[prevStage] ?? prevStage).toUpperCase(),
+            etapa_nueva:    (STAGE_TO_STATUS[targetStage] ?? targetStage).toUpperCase(),
+            vendedor:       deal.owner_name ?? null,
+            contact_id:     deal.contact_id,
+          })
+        }
       }
     }
   }
@@ -112,7 +127,24 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
       if (updated) {
         const newDeals = deals.map(d => d.id === editDeal.id ? updated as Deal : d)
         setDeals(newDeals)
-        if (data.stage_id) await syncContactStatus(updated.contact_id, data.stage_id)
+        if (data.stage_id) {
+          await syncContactStatus(updated.contact_id, data.stage_id)
+          const contactInfo = contacts.find(c => c.id === updated.contact_id)
+          if (contactInfo && data.stage_id !== editDeal.stage_id) {
+            await supabase.from('historial_leads').insert({
+              user_id:        userId,
+              fecha:          new Date().toISOString(),
+              nombre:         contactInfo.name,
+              numero:         null,
+              tipo:           'CAMBIO_ESTADO',
+              mensaje:        `Etapa cambiada a "${stages.find(s => s.id === data.stage_id)?.label}"`,
+              etapa_anterior: (STAGE_TO_STATUS[editDeal.stage_id] ?? editDeal.stage_id).toUpperCase(),
+              etapa_nueva:    (STAGE_TO_STATUS[data.stage_id] ?? data.stage_id).toUpperCase(),
+              vendedor:       (updated as Deal).owner_name ?? null,
+              contact_id:     updated.contact_id,
+            })
+          }
+        }
         await syncContactValue(updated.contact_id, newDeals)
       }
     } else {
@@ -125,6 +157,21 @@ export default function KanbanBoard({ userId, stages, initialDeals, contacts }: 
         setDeals(newDeals)
         await syncContactStatus(created.contact_id, stageId)
         await syncContactValue(created.contact_id, newDeals)
+        const contactInfo = contacts.find(c => c.id === created.contact_id)
+        if (contactInfo) {
+          await supabase.from('historial_leads').insert({
+            user_id:        userId,
+            fecha:          new Date().toISOString(),
+            nombre:         contactInfo.name,
+            numero:         null,
+            tipo:           'ASIGNACION',
+            mensaje:        `Deal creado en "${stages.find(s => s.id === stageId)?.label}"`,
+            etapa_anterior: 'NO_ENVIADO',
+            etapa_nueva:    (STAGE_TO_STATUS[stageId] ?? stageId).toUpperCase(),
+            vendedor:       (created as Deal).owner_name ?? null,
+            contact_id:     created.contact_id,
+          })
+        }
       }
     }
     setShowModal(false)

@@ -25,7 +25,8 @@ function App() {
   { id: 'calendar', label: 'Calendario', icon: 'calendar' },
   { id: 'reports', label: 'Reportes', icon: 'reports' },
   { id: 'inbox', label: 'Inbox', icon: 'inbox', count: 3 },
-  { id: 'team', label: 'Equipo', icon: 'team', count: window.NORTE.team.length }];
+  { id: 'team', label: 'Equipo', icon: 'team', count: window.NORTE.team.length },
+  { id: 'historial', label: 'Historial de Leads', icon: 'clock' }];
 
 
   const screens = {
@@ -41,7 +42,8 @@ function App() {
     reports: { c: <Reports />, title: ['Reportes'] },
     inbox: { c: <Inbox />, title: ['Inbox'], flush: true },
     team: { c: <TeamAdmin go={go} />, title: ['Equipo de ventas'] },
-    settings: { c: <Settings />, title: ['Configuración'], flush: true }
+    settings: { c: <Settings />, title: ['Configuración'], flush: true },
+    historial: { c: <LeadHistory />, title: ['Historial de Leads'] }
   };
   const cur = screens[route.name] || screens.dashboard;
 

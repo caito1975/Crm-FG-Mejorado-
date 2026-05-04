@@ -111,5 +111,28 @@ window.NORTE = (() => {
     { label: 'Otros',            v: 13, color: 'oklch(70% 0.04 250)' },
   ];
 
-  return { contacts, stages, deals, tasks, activities, inbox, team, revenue, sources };
+  const historial = [
+    { id: 'h01', fecha: '2026-05-04 13:48:43', nombre: 'Lucía Fernández',    numero: '5491140069600', tipo: 'ASIGNACION',    mensaje: 'Asignado a Sofía Aramburu',    etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Sofía Aramburu', notas: '' },
+    { id: 'h02', fecha: '2026-05-04 13:47:33', nombre: 'Mateo Aguirre',      numero: '5493514260560', tipo: 'ASIGNACION',    mensaje: 'Asignado a Ana López',         etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Ana López',       notas: '' },
+    { id: 'h03', fecha: '2026-05-04 13:46:23', nombre: 'Sofía Aramburu',     numero: '5491147774005', tipo: 'ASIGNACION',    mensaje: 'Asignado a Pablo Yánez',       etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Pablo Yánez',     notas: '' },
+    { id: 'h04', fecha: '2026-05-04 13:45:12', nombre: 'Diego Salinas',      numero: '5491144807000', tipo: 'ASIGNACION',    mensaje: 'Asignado a Sofía Aramburu',    etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Sofía Aramburu', notas: '' },
+    { id: 'h05', fecha: '2026-05-04 13:44:00', nombre: 'Renata Bustos',      numero: '5491140064700', tipo: 'ASIGNACION',    mensaje: 'Asignado a Pablo Yánez',       etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Pablo Yánez',     notas: '' },
+    { id: 'h06', fecha: '2026-05-04 13:42:48', nombre: 'Tomás Iglesias',     numero: '5493516137131', tipo: 'ASIGNACION',    mensaje: 'Asignado a Ana López',         etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Ana López',       notas: '' },
+    { id: 'h07', fecha: '2026-05-04 13:41:40', nombre: 'Camila Peña',        numero: '5491161700157', tipo: 'ASIGNACION',    mensaje: 'Asignado a Pablo Yánez',       etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Pablo Yánez',     notas: '' },
+    { id: 'h08', fecha: '2026-05-04 10:22:15', nombre: 'Camila Peña',        numero: '5491161700157', tipo: 'CAMBIO_ESTADO', mensaje: 'Etapa avanzada a Doc. Firmada', etapa_anterior: 'ENVIADO',    etapa_nueva: 'DOC_FIRMADA', vendedor: 'Sofía Aramburu', notas: 'Firmó contrato por 6 meses' },
+    { id: 'h09', fecha: '2026-05-03 16:34:00', nombre: 'Tomás Iglesias',     numero: '5493516137131', tipo: 'LLAMADA',       mensaje: 'Llamada de seguimiento — 18 min', etapa_anterior: 'ENVIADO', etapa_nueva: 'ENVIADO',     vendedor: 'Ana López',       notas: 'Muy interesado, pide propuesta' },
+    { id: 'h10', fecha: '2026-05-03 14:10:50', nombre: 'Renata Bustos',      numero: '5491140064700', tipo: 'EMAIL',         mensaje: 'Mail enviado — propuesta v2',  etapa_anterior: 'REU_INICIAL', etapa_nueva: 'PROP_ENVIADA', vendedor: 'Pablo Yánez',   notas: '' },
+    { id: 'h11', fecha: '2026-05-03 11:05:33', nombre: 'Lucía Fernández',    numero: '5491140069600', tipo: 'NOTA',          mensaje: 'Pidió reunión con equipo técnico', etapa_anterior: 'PROP_ENVIADA', etapa_nueva: 'PROP_ENVIADA', vendedor: 'Sofía Aramburu', notas: 'Coordinar con dev para el lunes' },
+    { id: 'h12', fecha: '2026-05-02 17:44:21', nombre: 'Diego Salinas',      numero: '5491144807000', tipo: 'CAMBIO_ESTADO', mensaje: 'Ganado — proyecto cerrado',     etapa_anterior: 'DOC_FIRMADA', etapa_nueva: 'GANADO',     vendedor: 'Sofía Aramburu', notas: '' },
+    { id: 'h13', fecha: '2026-05-02 15:00:00', nombre: 'Mateo Aguirre',      numero: '5493514260560', tipo: 'EMAIL',         mensaje: 'Mail enviado — seguimiento Reu. Inicial', etapa_anterior: 'REU_INICIAL', etapa_nueva: 'REU_INICIAL', vendedor: 'Ana López', notas: '' },
+    { id: 'h14', fecha: '2026-05-02 09:30:12', nombre: 'Sofía Aramburu',     numero: '5491147774005', tipo: 'LLAMADA',       mensaje: 'Primer contacto — 8 min',      etapa_anterior: 'ENVIAR_MAIL', etapa_nueva: 'ENVIADO',    vendedor: 'Pablo Yánez',     notas: 'Respondió con interés' },
+    { id: 'h15', fecha: '2026-05-01 18:22:05', nombre: 'Renata Bustos',      numero: '5491140064700', tipo: 'CAMBIO_ESTADO', mensaje: 'Avanzó a Reunión Inicial',     etapa_anterior: 'ENVIADO',    etapa_nueva: 'REU_INICIAL', vendedor: 'Pablo Yánez',    notas: '' },
+    { id: 'h16', fecha: '2026-05-01 12:11:00', nombre: 'Tomás Iglesias',     numero: '5493516137131', tipo: 'ASIGNACION',    mensaje: 'Asignado a Ana López',         etapa_anterior: 'NO_ENVIADO', etapa_nueva: 'ENVIAR_MAIL', vendedor: 'Ana López',       notas: '' },
+    { id: 'h17', fecha: '2026-04-30 16:55:40', nombre: 'Lucía Fernández',    numero: '5491140069600', tipo: 'EMAIL',         mensaje: 'Propuesta enviada — USD 86k',  etapa_anterior: 'SEG_REU',    etapa_nueva: 'PROP_ENVIADA', vendedor: 'Sofía Aramburu', notas: '' },
+    { id: 'h18', fecha: '2026-04-30 10:00:00', nombre: 'Camila Peña',        numero: '5491161700157', tipo: 'NOTA',          mensaje: 'Legal aprobó los términos',    etapa_anterior: 'DOC_ENVIADA', etapa_nueva: 'DOC_ENVIADA', vendedor: 'Sofía Aramburu', notas: 'Esperar firma de dirección' },
+    { id: 'h19', fecha: '2026-04-29 14:33:18', nombre: 'Mateo Aguirre',      numero: '5493514260560', tipo: 'LLAMADA',       mensaje: 'Discovery — 35 min',           etapa_anterior: 'ENVIADO',    etapa_nueva: 'REU_INICIAL', vendedor: 'Ana López',       notas: 'Buen fit, presupuesto ajustado' },
+    { id: 'h20', fecha: '2026-04-29 09:15:00', nombre: 'Diego Salinas',      numero: '5491144807000', tipo: 'CAMBIO_ESTADO', mensaje: 'Doc. firmada recibida',        etapa_anterior: 'PED_FC',     etapa_nueva: 'DOC_FIRMADA', vendedor: 'Sofía Aramburu', notas: '' },
+  ];
+
+  return { contacts, stages, deals, tasks, activities, inbox, team, revenue, sources, historial };
 })();

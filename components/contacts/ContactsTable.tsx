@@ -43,11 +43,59 @@ export default function ContactsTable({ userId, initialContacts }: { userId: str
     if (editContact) {
       const { data: updated } = await supabase
         .from('contacts').update(data).eq('id', editContact.id).select().single()
-      if (updated) setContacts(cs => cs.map(c => c.id === editContact.id ? updated as Contact : c))
+      if (updated) {
+        setContacts(cs => cs.map(c => c.id === editContact.id ? updated as Contact : c))
+        const c = updated as Contact
+        // Registrar cambio de estado
+        if (data.status && data.status !== editContact.status) {
+          await supabase.from('historial_leads').insert({
+            user_id:        userId,
+            fecha:          new Date().toISOString(),
+            nombre:         c.name,
+            numero:         c.phone ?? null,
+            tipo:           'CAMBIO_ESTADO',
+            mensaje:        `Estado cambiado a ${data.status}`,
+            etapa_anterior: editContact.status,
+            etapa_nueva:    data.status,
+            vendedor:       c.owner_name ?? null,
+            contact_id:     c.id,
+          })
+        }
+        // Registrar reasignación de vendedor
+        if (data.owner_name && data.owner_name !== editContact.owner_name) {
+          await supabase.from('historial_leads').insert({
+            user_id:        userId,
+            fecha:          new Date().toISOString(),
+            nombre:         c.name,
+            numero:         c.phone ?? null,
+            tipo:           'ASIGNACION',
+            mensaje:        `Asignado a ${data.owner_name}`,
+            etapa_anterior: c.status,
+            etapa_nueva:    c.status,
+            vendedor:       data.owner_name,
+            contact_id:     c.id,
+          })
+        }
+      }
     } else {
       const { data: created } = await supabase
         .from('contacts').insert({ ...data, user_id: userId }).select().single()
-      if (created) setContacts(cs => [created as Contact, ...cs])
+      if (created) {
+        setContacts(cs => [created as Contact, ...cs])
+        const c = created as Contact
+        await supabase.from('historial_leads').insert({
+          user_id:        userId,
+          fecha:          new Date().toISOString(),
+          nombre:         c.name,
+          numero:         c.phone ?? null,
+          tipo:           'ASIGNACION',
+          mensaje:        `Asignado a ${c.owner_name ?? 'sin vendedor'}`,
+          etapa_anterior: 'NO_ENVIADO',
+          etapa_nueva:    c.status?.toUpperCase() ?? 'LEAD',
+          vendedor:       c.owner_name ?? null,
+          contact_id:     c.id,
+        })
+      }
     }
     setShowModal(false)
     setEditContact(null)
