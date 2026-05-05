@@ -12,6 +12,8 @@ export default async function TeamPage() {
 
   const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
 
+  if (!isOwner) redirect('/dashboard')
+
   const [{ data: members }, { data: deals }] = await Promise.all([
     supabase.from('team_members').select('*').eq('owner_id', workspaceId).order('created_at'),
     supabase.from('deals').select('*').eq('user_id', workspaceId),
