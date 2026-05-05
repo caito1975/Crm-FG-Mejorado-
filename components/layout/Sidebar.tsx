@@ -15,6 +15,7 @@ interface NavItem {
 interface SidebarProps {
   userName: string
   userRole: string
+  isOwner: boolean
   contactCount: number
   dealCount: number
   taskCount: number
@@ -25,6 +26,7 @@ interface SidebarProps {
 export default function Sidebar({
   userName,
   userRole,
+  isOwner,
   contactCount,
   dealCount,
   taskCount,
@@ -43,7 +45,7 @@ export default function Sidebar({
     { id: 'calendar',  label: 'Calendario', icon: 'calendar',  href: '/calendar' },
     { id: 'reports',   label: 'Reportes',   icon: 'reports',   href: '/reports' },
     { id: 'inbox',     label: 'Inbox',      icon: 'inbox',     href: '/inbox',     count: inboxCount },
-    { id: 'team',      label: 'Equipo',     icon: 'team',      href: '/team',      count: teamCount },
+    ...(isOwner ? [{ id: 'team', label: 'Equipo', icon: 'team', href: '/team', count: teamCount }] : []),
     { id: 'historial', label: 'Historial de Leads', icon: 'clock', href: '/historial' },
   ]
 

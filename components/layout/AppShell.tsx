@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 interface AppShellProps {
   userName: string
   userRole: string
+  isOwner: boolean
   contactCount: number
   dealCount: number
   taskCount: number
@@ -14,7 +15,7 @@ interface AppShellProps {
 }
 
 export default function AppShell({
-  userName, userRole, contactCount, dealCount, taskCount, teamCount, inboxCount, children,
+  userName, userRole, isOwner, contactCount, dealCount, taskCount, teamCount, inboxCount, children,
 }: AppShellProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -28,6 +29,7 @@ export default function AppShell({
         <Sidebar
           userName={userName}
           userRole={userRole}
+          isOwner={isOwner}
           contactCount={contactCount}
           dealCount={dealCount}
           taskCount={taskCount}

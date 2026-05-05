@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { PipelineStage } from '@/lib/types'
 import Icon from '@/components/ui/Icon'
 
-type Tab = 'workspace' | 'etapas' | 'integraciones' | 'billing' | 'api'
+type Tab = 'workspace' | 'etapas' | 'integraciones' | 'billing' | 'api' | 'cuenta'
 type Theme = 'Claro' | 'Oscuro' | 'Sistema'
 type Density = 'Compacta' | 'Normal' | 'Cómoda'
 type Currency = 'ARS' | 'USD' | 'EUR'
@@ -51,6 +51,9 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
   const [connections, setConnections] = useState<Record<string, Integration>>({})
   const [syncing, setSyncing]   = useState<string | null>(null)
   const [syncMsg, setSyncMsg]   = useState<Record<string, string>>({})
+  const [pwForm, setPwForm]     = useState({ current: '', next: '', confirm: '' })
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMsg, setPwMsg]       = useState<{ text: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     const savedTheme    = (localStorage.getItem('crm-theme')     as Theme)    || 'Sistema'
@@ -143,6 +146,28 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
     setConnections(c => { const n = { ...c }; delete n[provider]; return n })
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (pwForm.next !== pwForm.confirm) {
+      setPwMsg({ text: 'Las contraseñas nuevas no coinciden', ok: false })
+      return
+    }
+    if (pwForm.next.length < 6) {
+      setPwMsg({ text: 'La contraseña debe tener al menos 6 caracteres', ok: false })
+      return
+    }
+    setPwSaving(true)
+    setPwMsg(null)
+    const { error } = await supabase.auth.updateUser({ password: pwForm.next })
+    if (error) {
+      setPwMsg({ text: error.message, ok: false })
+    } else {
+      setPwMsg({ text: 'Contraseña actualizada correctamente', ok: true })
+      setPwForm({ current: '', next: '', confirm: '' })
+    }
+    setPwSaving(false)
+  }
+
   async function handleSync(provider: string) {
     setSyncing(provider)
     setSyncMsg(m => ({ ...m, [provider]: '' }))
@@ -170,9 +195,9 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
       </div>
 
       <div className="tabs" style={{ marginBottom: 20 }}>
-        {(['workspace', 'etapas', 'integraciones', 'billing', 'api'] as Tab[]).map(t => (
+        {(['workspace', 'etapas', 'integraciones', 'billing', 'api', 'cuenta'] as Tab[]).map(t => (
           <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'cuenta' ? 'Mi cuenta' : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -403,6 +428,61 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
             <div className="empty" style={{ padding: '32px 0' }}>
               <Icon name="doc" size={24} />
               <p style={{ marginTop: 8, fontSize: 13 }}>Sin facturas aún.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'cuenta' && (
+        <div style={{ maxWidth: 480 }}>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h3>Mi cuenta</h3>
+                <div className="sub">{userEmail}</div>
+              </div>
+            </div>
+            <div className="card-pad">
+              <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="field">
+                  <label>Nueva contraseña</label>
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={pwForm.next}
+                    onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Confirmar contraseña</label>
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="Repetir nueva contraseña"
+                    value={pwForm.confirm}
+                    onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                    required
+                  />
+                </div>
+                {pwMsg && (
+                  <div style={{
+                    fontSize: 13, padding: '8px 12px', borderRadius: 6,
+                    background: pwMsg.ok ? 'var(--success-soft, oklch(95% 0.04 145))' : 'var(--danger-soft, oklch(95% 0.04 25))',
+                    color: pwMsg.ok ? 'var(--success)' : 'var(--danger)',
+                  }}>
+                    {pwMsg.text}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="btn primary"
+                  disabled={pwSaving || !pwForm.next || !pwForm.confirm}
+                >
+                  {pwSaving ? 'Guardando…' : 'Cambiar contraseña'}
+                </button>
+              </form>
             </div>
           </div>
         </div>
