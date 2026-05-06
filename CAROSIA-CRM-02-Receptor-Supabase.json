@@ -206,7 +206,7 @@
           "parameters": [
             {
               "name": "select",
-              "value": "id,name,phone,permission,deals_count,status"
+              "value": "id,name,phone,permission,deals_count,status,member_user_id"
             },
             {
               "name": "status",
@@ -234,7 +234,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// n8n splits Supabase array into individual items — use $input.all()\nconst items = $input.all();\nconst contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst vendors = items\n  .map(i => i.json)\n  .filter(v => v.id && v.permission !== 'admin');\n\nif (vendors.length === 0) {\n  return [{ json: { assigned: false, contact_id: contact.contact_id, user_id: contact.user_id } }];\n}\n\nconst minDeals = Math.min(...vendors.map(v => Number(v.deals_count) || 0));\nconst candidates = vendors.filter(v => (Number(v.deals_count) || 0) === minDeals);\nconst vendor = candidates[Math.floor(Math.random() * candidates.length)];\n\nconst vendorPhone = String(vendor.phone || '').replace(/\\D/g, '');\n\nconst waVendorText = 'Hola ' + vendor.name + '! Te asignaron un nuevo lead que respondio.\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Telefono:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || '-') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + 'Revisa el CRM para gestionar el lead.';\n\nconst waOwnerText = 'LEAD RESPONDIO\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Numero:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || 'Sin clasificar') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + '*Vendedor asignado:* ' + vendor.name;\n\nconst inboxBody = 'Respuesta WhatsApp recibida\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Telefono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje del lead:\\n\"' + ex.texto + '\"\\n\\n'\n  + 'Vendedor asignado: ' + vendor.name;\n\nreturn [{ json: {\n  assigned: true,\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: contact.user_id,\n  vendor_id: vendor.id,\n  vendor_name: vendor.name,\n  vendor_phone: vendorPhone,\n  vendor_deals_ant: Number(vendor.deals_count) || 0,\n  fecha_respuesta: ex.fecha_respuesta,\n  wa_vendor_text: waVendorText,\n  wa_owner_text: waOwnerText,\n  inbox_body: inboxBody,\n  inbox_preview: ex.texto.substring(0, 120),\n  inbox_subject: 'WhatsApp de ' + contact.name + (contact.rubro ? ' · ' + contact.rubro : '')\n} }];"
+        "jsCode": "// n8n splits Supabase array into individual items — use $input.all()\nconst items = $input.all();\nconst contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst vendors = items\n  .map(i => i.json)\n  .filter(v => v.id && v.permission !== 'admin');\n\nif (vendors.length === 0) {\n  return [{ json: { assigned: false, contact_id: contact.contact_id, user_id: contact.user_id } }];\n}\n\nconst minDeals = Math.min(...vendors.map(v => Number(v.deals_count) || 0));\nconst candidates = vendors.filter(v => (Number(v.deals_count) || 0) === minDeals);\nconst vendor = candidates[Math.floor(Math.random() * candidates.length)];\n\nconst vendorPhone = String(vendor.phone || '').replace(/\\D/g, '');\n\nconst waVendorText = 'Hola ' + vendor.name + '! Te asignaron un nuevo lead que respondio.\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Telefono:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || '-') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + 'Revisa el CRM para gestionar el lead.';\n\nconst waOwnerText = 'LEAD RESPONDIO\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Numero:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || 'Sin clasificar') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + '*Vendedor asignado:* ' + vendor.name;\n\nconst inboxBody = 'Respuesta WhatsApp recibida\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Telefono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje del lead:\\n\"' + ex.texto + '\"\\n\\n'\n  + 'Vendedor asignado: ' + vendor.name;\n\nreturn [{ json: {\n  assigned: true,\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: contact.user_id,\n  vendor_id: vendor.id,\n  vendor_name: vendor.name,\n  vendor_phone: vendorPhone,\n  vendor_member_user_id: vendor.member_user_id || null,\n  vendor_deals_ant: Number(vendor.deals_count) || 0,\n  fecha_respuesta: ex.fecha_respuesta,\n  wa_vendor_text: waVendorText,\n  wa_owner_text: waOwnerText,\n  inbox_body: inboxBody,\n  inbox_preview: ex.texto.substring(0, 120),\n  inbox_subject: 'WhatsApp de ' + contact.name + (contact.rubro ? ' · ' + contact.rubro : '')\n} }];"
       },
       "id": "c02s-roundrobin",
       "name": "Asignar Round-Robin",
@@ -307,7 +307,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ ({ owner_name: $json.vendor_name }) }}",
+        "jsonBody": "={{ ({ owner_name: $json.vendor_name, assigned_to: $json.vendor_member_user_id }) }}",
         "options": {}
       },
       "id": "c02s-update-owner",
@@ -359,6 +359,32 @@
         3600,
         160
       ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals?contact_id=eq.' + $('Asignar Round-Robin').first().json.contact_id + '&stage_id=not.in.(ganado,perdido)' }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ stage_id: 'interesado', owner_name: $('Asignar Round-Robin').first().json.vendor_name }) }}",
+        "options": {}
+      },
+      "id": "c02s-update-deal",
+      "name": "Actualizar Deal Interesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [ 3760, 160 ],
       "continueOnFail": true
     },
     {
@@ -626,13 +652,12 @@
     },
     "Incrementar Deals Vendedor": {
       "main": [
-        [
-          {
-            "node": "Registrar Actividad",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Actualizar Deal Interesado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Actualizar Deal Interesado": {
+      "main": [
+        [{ "node": "Registrar Actividad", "type": "main", "index": 0 }]
       ]
     },
     "Registrar Actividad": {
