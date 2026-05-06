@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## CRM-04 — ASIGNAR LEADS NO_ENVIADO\n### francisco.carosIA\n\n**Flujo:**\n1. Lee contactos `status=no_enviado` de Supabase\n2. Round-robin entre vendedores activos (menor `deals_count`)\n3. Actualiza contacto: `status → enviar_mail` + `owner_name`\n4. Notifica al vendedor por WhatsApp con datos del lead\n5. Registra en Inbox y Activities del CRM\n\n**⚠️ Ejecutar antes de activar:**\n```sql\nALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_status_check;\nALTER TABLE contacts ADD CONSTRAINT contacts_status_check\n  CHECK (status IN ('cliente','oportunidad','lead','archivado',\n  'enviado','no_enviado','interesado','enviar_mail'));\n```",
+        "content": "## CRM-04 — ASIGNAR LEADS NO_ENVIADO\n### francisco.carosIA\n\n**Flujo:**\n1. Lee contactos `status=no_enviado` de Supabase\n2. Round-robin entre vendedores activos (menor `deals_count`)\n3. Actualiza contacto: `status → contactar` + `owner_name`\n4. Notifica al vendedor por WhatsApp con datos del lead\n5. Registra en Inbox y Activities del CRM",
         "height": 360,
         "width": 500,
         "color": 4
@@ -147,7 +147,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ ({ status: 'enviar_mail', owner_name: $json.vendor_name, last_touch: $json.now_str }) }}",
+        "jsonBody": "={{ ({ status: 'contactar', owner_name: $json.vendor_name, last_touch: $json.now_str }) }}",
         "options": {}
       },
       "id": "c04s-actualizar",
@@ -199,7 +199,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, title: 'Lead: ' + String($('Asignar Round-Robin').first().json.contact_name || ''), contact_id: $('Asignar Round-Robin').first().json.contact_id, stage_id: 'enviar_mail', amount: 0, probability: 20, owner_name: $('Asignar Round-Robin').first().json.vendor_name }) }}",
+        "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, title: 'Lead: ' + String($('Asignar Round-Robin').first().json.contact_name || ''), contact_id: $('Asignar Round-Robin').first().json.contact_id, stage_id: 'contactar', amount: 0, probability: 20, owner_name: $('Asignar Round-Robin').first().json.vendor_name }) }}",
         "options": {}
       },
       "id": "c04s-deal",
