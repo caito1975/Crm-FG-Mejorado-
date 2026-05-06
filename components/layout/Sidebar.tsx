@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
@@ -38,15 +39,15 @@ export default function Sidebar({
   const supabase = createClient()
 
   const nav: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard',  icon: 'dashboard', href: '/dashboard' },
-    { id: 'contacts',  label: 'Contactos',  icon: 'contacts',  href: '/contacts',  count: contactCount },
-    { id: 'pipeline',  label: 'Pipeline',   icon: 'pipeline',  href: '/pipeline',  count: dealCount },
-    { id: 'tasks',     label: 'Tareas',     icon: 'tasks',     href: '/tasks',     count: taskCount },
-    { id: 'calendar',  label: 'Calendario', icon: 'calendar',  href: '/calendar' },
-    { id: 'reports',   label: 'Reportes',   icon: 'reports',   href: '/reports' },
-    { id: 'inbox',     label: 'Inbox',      icon: 'inbox',     href: '/inbox',     count: inboxCount },
-    ...(isOwner ? [{ id: 'team', label: 'Equipo', icon: 'team', href: '/team', count: teamCount }] : []),
-    { id: 'historial', label: 'Historial de Leads', icon: 'clock', href: '/historial' },
+    { id: 'dashboard', label: 'Dashboard',          icon: 'dashboard', href: '/dashboard' },
+    { id: 'contacts',  label: 'Contactos',          icon: 'contacts',  href: '/contacts',  count: contactCount },
+    { id: 'pipeline',  label: 'Pipeline',           icon: 'pipeline',  href: '/pipeline',  count: dealCount },
+    { id: 'tasks',     label: 'Tareas',             icon: 'tasks',     href: '/tasks',     count: taskCount },
+    { id: 'calendar',  label: 'Calendario',         icon: 'calendar',  href: '/calendar' },
+    { id: 'reports',   label: 'Reportes',           icon: 'reports',   href: '/reports' },
+    { id: 'inbox',     label: 'Inbox',              icon: 'inbox',     href: '/inbox',     count: inboxCount },
+    ...(isOwner ? [{ id: 'team', label: 'Equipo',  icon: 'team',      href: '/team',      count: teamCount }] : []),
+    { id: 'historial', label: 'Historial de Leads', icon: 'clock',     href: '/historial' },
   ]
 
   const saved = [
@@ -96,17 +97,18 @@ export default function Sidebar({
       <nav className="sidebar-nav">
         <div className="nav-section">Espacio de trabajo</div>
         {nav.map(n => (
-          <div
+          <Link
             key={n.id}
+            href={n.href}
             className={`nav-item ${isActive(n.href) ? 'active' : ''}`}
-            onClick={() => router.push(n.href)}
+            style={{ textDecoration: 'none' }}
           >
             <span className="nav-ico"><Icon name={n.icon} size={15} /></span>
             <span>{n.label}</span>
             {typeof n.count === 'number' && (
               <span className="nav-count">{n.count}</span>
             )}
-          </div>
+          </Link>
         ))}
 
         <div className="nav-section">Vistas guardadas</div>
@@ -125,13 +127,9 @@ export default function Sidebar({
           <b>{userName}</b>
           <span>{userRole}</span>
         </div>
-        <button
-          className="btn ghost sm icon"
-          onClick={() => router.push('/settings')}
-          title="Configuración"
-        >
+        <Link href="/settings" className="btn ghost sm icon" title="Configuración">
           <Icon name="settings" size={14} />
-        </button>
+        </Link>
         <button
           className="btn ghost sm icon"
           onClick={signOut}

@@ -68,6 +68,8 @@ export default function ContactModal({ contact, onSave, onClose, isOwner = true 
       value:       Number(form.value),
       tags:        form.tags.split(',').map(t => t.trim()).filter(Boolean),
       assigned_to: form.assigned_to || null,
+      owner_name:  form.assigned_to ? form.owner_name : null,
+      website:     form.website || null,
       last_touch:  new Date().toISOString(),
     })
   }
@@ -110,6 +112,7 @@ export default function ContactModal({ contact, onSave, onClose, isOwner = true 
                 <label>Estado</label>
                 <select className="input" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as ContactStatus }))}>
                   <option value="lead">Lead</option>
+                  <option value="contactar">Contactar</option>
                   <option value="enviado">Enviado</option>
                   <option value="no_enviado">No enviado</option>
                   <option value="interesado">Interesado</option>

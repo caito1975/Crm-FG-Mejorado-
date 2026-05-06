@@ -122,9 +122,13 @@ export default function ReportsClient({ deals, contacts, stages }: Props) {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 20 }}>
-        {(['funnel', 'contactos', 'pipeline'] as Tab[]).map(t => (
-          <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'funnel' ? 'Pipeline' : t.charAt(0).toUpperCase() + t.slice(1)}
+        {([
+          { value: 'funnel',    label: 'Embudo' },
+          { value: 'contactos', label: 'Contactos' },
+          { value: 'pipeline',  label: 'Tabla de deals' },
+        ] as { value: Tab; label: string }[]).map(t => (
+          <button key={t.value} className={`tab ${tab === t.value ? 'active' : ''}`} onClick={() => setTab(t.value)}>
+            {t.label}
           </button>
         ))}
       </div>

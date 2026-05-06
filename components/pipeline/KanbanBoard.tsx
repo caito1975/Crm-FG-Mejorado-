@@ -59,7 +59,7 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
 
   const STAGE_TO_STATUS: Record<string, string> = {
     ganado: 'cliente', perdido: 'archivado', enviado: 'enviado',
-    enviar_mail: 'enviar_mail', interesado: 'interesado', oportunidad: 'oportunidad',
+    contactar: 'lead', contactado: 'lead', interesado: 'interesado', oportunidad: 'oportunidad',
   }
 
   async function syncContactStatus(contactId: string | null | undefined, stageId: string) {

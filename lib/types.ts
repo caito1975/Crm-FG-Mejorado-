@@ -1,6 +1,6 @@
 // Norte CRM — TypeScript types
 
-export type ContactStatus = 'cliente' | 'oportunidad' | 'lead' | 'archivado' | 'enviado' | 'no_enviado' | 'interesado' | 'enviar_mail'
+export type ContactStatus = 'cliente' | 'oportunidad' | 'lead' | 'archivado' | 'enviado' | 'no_enviado' | 'interesado' | 'contactar'
 export type TaskPriority  = 'alta' | 'media' | 'baja'
 export type ActivityKind  = 'email_in' | 'email_out' | 'call_out' | 'meeting' | 'note' | 'invoice' | 'stage_change'
 export type MemberPerm    = 'admin' | 'manager' | 'vendedor' | 'sdr' | 'viewer'
@@ -160,16 +160,17 @@ export interface InboxMessage {
 // Default pipeline stages
 export const DEFAULT_STAGES: Omit<PipelineStage, 'user_id'>[] = [
   { id: 'enviado',      label: 'Enviado',         color: 'oklch(68% 0.08 230)',  position: 0 },
-  { id: 'enviar_mail',  label: 'Enviar Mail',     color: 'oklch(72% 0.04 250)',  position: 1 },
-  { id: 'interesado',   label: 'Interesado',      color: 'oklch(65% 0.14 200)',  position: 2 },
-  { id: 'reu_inicial',  label: 'Reu. Inicial',    color: 'oklch(65% 0.11 230)',  position: 3 },
-  { id: 'seg_reu',      label: 'Seg. Reunión',    color: 'oklch(65% 0.13 260)',  position: 4 },
-  { id: 'prop_enviada', label: 'Prop. Enviada',   color: 'oklch(68% 0.14 305)',  position: 5 },
-  { id: 'doc_enviada',  label: 'Doc. Enviada',    color: 'oklch(65% 0.13 280)',  position: 6 },
-  { id: 'doc_firmada',  label: 'Doc. Firmada',    color: 'oklch(62% 0.14 145)',  position: 7 },
-  { id: 'ped_fc',       label: 'Ped. de FC',      color: 'oklch(70% 0.14 75)',   position: 8 },
-  { id: 'ganado',       label: 'Ganado-Consumo',  color: 'oklch(58% 0.15 155)',  position: 9 },
-  { id: 'perdido',      label: 'Perdido',         color: 'oklch(60% 0.14 25)',   position: 10 },
+  { id: 'contactar',    label: 'Contactar',       color: 'oklch(70% 0.10 200)',  position: 1 },
+  { id: 'contactado',   label: 'Contactado',      color: 'oklch(68% 0.12 195)',  position: 2 },
+  { id: 'interesado',   label: 'Interesado',      color: 'oklch(65% 0.14 200)',  position: 3 },
+  { id: 'reu_inicial',  label: 'Reu. Inicial',    color: 'oklch(65% 0.11 230)',  position: 4 },
+  { id: 'seg_reu',      label: 'Seg. Reunión',    color: 'oklch(65% 0.13 260)',  position: 5 },
+  { id: 'prop_enviada', label: 'Prop. Enviada',   color: 'oklch(68% 0.14 305)',  position: 6 },
+  { id: 'doc_enviada',  label: 'Doc. Enviada',    color: 'oklch(65% 0.13 280)',  position: 7 },
+  { id: 'doc_firmada',  label: 'Doc. Firmada',    color: 'oklch(62% 0.14 145)',  position: 8 },
+  { id: 'ped_fc',       label: 'Ped. de FC',      color: 'oklch(70% 0.14 75)',   position: 9 },
+  { id: 'ganado',       label: 'Ganado-Consumo',  color: 'oklch(58% 0.15 155)',  position: 10 },
+  { id: 'perdido',      label: 'Perdido',         color: 'oklch(60% 0.14 25)',   position: 11 },
 ]
 
 export function getInitials(name: string): string {

@@ -3,34 +3,36 @@ import type { Deal } from '@/lib/types'
 import { useCurrency } from '@/lib/useCurrency'
 
 const STAGE_LABELS: Record<string, string> = {
-  enviar_mail:  'Enviar Mail',
   enviado:      'Enviado',
+  contactar:    'Contactar',
+  contactado:   'Contactado',
   interesado:   'Interesado',
   reu_inicial:  'Reu. Inicial',
   seg_reu:      'Seg. Reunión',
-  doc_enviada:  'Doc. Enviada',
   prop_enviada: 'Prop. Enviada',
-  ped_fc:       'Ped. de FC',
+  doc_enviada:  'Doc. Enviada',
   doc_firmada:  'Doc. Firmada',
+  ped_fc:       'Ped. de FC',
   ganado:       'Ganado',
   perdido:      'Perdido',
 }
 
 const STAGE_COLORS: Record<string, string> = {
-  enviar_mail:  'oklch(72% 0.04 250)',
   enviado:      'oklch(68% 0.08 230)',
+  contactar:    'oklch(70% 0.10 200)',
+  contactado:   'oklch(68% 0.12 195)',
   interesado:   'oklch(65% 0.14 200)',
   reu_inicial:  'oklch(65% 0.11 230)',
   seg_reu:      'oklch(65% 0.13 260)',
-  doc_enviada:  'oklch(65% 0.13 280)',
   prop_enviada: 'oklch(68% 0.14 305)',
-  ped_fc:       'oklch(70% 0.14 75)',
+  doc_enviada:  'oklch(65% 0.13 280)',
   doc_firmada:  'oklch(62% 0.14 145)',
+  ped_fc:       'oklch(70% 0.14 75)',
   ganado:       'oklch(58% 0.15 155)',
   perdido:      'oklch(60% 0.14 25)',
 }
 
-const STAGE_ORDER = ['enviado','enviar_mail','interesado','reu_inicial','seg_reu','prop_enviada','doc_enviada','doc_firmada','ped_fc','ganado','perdido']
+const STAGE_ORDER = ['enviado','contactar','contactado','interesado','reu_inicial','seg_reu','prop_enviada','doc_enviada','doc_firmada','ped_fc','ganado','perdido']
 
 export default function RevenueChart({ deals }: { deals: Deal[] }) {
   const { formatAmount } = useCurrency()

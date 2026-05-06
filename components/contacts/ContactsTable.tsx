@@ -6,16 +6,16 @@ import type { Contact, ContactStatus } from '@/lib/types'
 import { useCurrency } from '@/lib/useCurrency'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
-import { StatusPill, TagPill } from '@/components/ui/Pill'
+import { StatusPill } from '@/components/ui/Pill'
 import ContactModal from './ContactModal'
 
 const STATUS_FILTERS: { label: string; value: ContactStatus | 'all' }[] = [
   { label: 'Todos',         value: 'all' },
   { label: 'Leads',         value: 'lead' },
+  { label: 'Contactar',     value: 'contactar' },
   { label: 'Enviados',      value: 'enviado' },
   { label: 'No enviados',   value: 'no_enviado' },
   { label: 'Interesados',   value: 'interesado' },
-  { label: 'Enviar Mail',   value: 'enviar_mail' },
   { label: 'Oportunidades', value: 'oportunidad' },
   { label: 'Clientes',      value: 'cliente' },
   { label: 'Archivados',    value: 'archivado' },
@@ -140,8 +140,12 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
 
   async function handleSave(data: Partial<Contact>) {
     if (editContact) {
-      const { data: updated } = await supabase
+      const { data: updated, error } = await supabase
         .from('contacts').update(data).eq('id', editContact.id).select().single()
+      if (error) {
+        alert(`Error al guardar: ${error.message}`)
+        return
+      }
       if (updated) {
         setContacts(cs => cs.map(c => c.id === editContact.id ? updated as Contact : c))
         const c = updated as Contact
@@ -176,8 +180,12 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
       }
     } else {
       const autoAssign = !isOwner && vendorId ? { assigned_to: vendorId } : {}
-      const { data: created } = await supabase
+      const { data: created, error } = await supabase
         .from('contacts').insert({ ...data, ...autoAssign, user_id: userId }).select().single()
+      if (error) {
+        alert(`Error al crear contacto: ${error.message}`)
+        return
+      }
       if (created) {
         setContacts(cs => [created as Contact, ...cs])
         const c = created as Contact

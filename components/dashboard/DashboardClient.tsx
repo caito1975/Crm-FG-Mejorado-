@@ -241,7 +241,8 @@ export default function DashboardClient({
               { label: 'Clientes',       keys: ['cliente'],                                     color: 'var(--success)' },
               { label: 'Oportunidades',  keys: ['oportunidad'],                                 color: 'var(--accent)' },
               { label: 'Interesados',    keys: ['interesado'],                                  color: 'var(--info)' },
-              { label: 'Leads',          keys: ['lead', 'enviado', 'no_enviado', 'enviar_mail'], color: 'oklch(65% 0.08 230)' },
+              { label: 'Leads',          keys: ['lead', 'contactar', 'no_enviado', 'contactado'], color: 'oklch(65% 0.08 230)' },
+              { label: 'Enviados',        keys: ['enviado'],                                             color: 'var(--warning)' },
               { label: 'Archivados',     keys: ['archivado'],                                   color: 'var(--text-subtle)' },
             ].map(s => {
               const count = filteredContacts.filter(c => s.keys.includes(c.status)).length

@@ -1,7 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
-import KanbanBoard from './KanbanBoard'
+import dynamic from 'next/dynamic'
 import type { Deal, PipelineStage, Contact } from '@/lib/types'
+
+const KanbanBoard = dynamic(() => import('./KanbanBoard'), {
+  ssr: false,
+  loading: () => <div style={{ flex: 1, minHeight: 0 }} />,
+})
 
 interface Props {
   userId: string
@@ -13,11 +17,5 @@ interface Props {
 }
 
 export default function KanbanBoardClient(props: Props) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
-
-  if (!mounted) return <div style={{ flex: 1, minHeight: 0 }} />
-
   return <KanbanBoard {...props} />
 }

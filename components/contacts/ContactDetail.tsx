@@ -20,7 +20,7 @@ const ACTIVITY_ICONS: Record<ActivityKind, string> = {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  enviar_mail: 'Enviar Mail', enviado: 'Enviado', reu_inicial: 'Reu. Inicial',
+  enviado: 'Enviado', reu_inicial: 'Reu. Inicial',
   seg_reu: 'Seg. Reunión', doc_enviada: 'Doc. Enviada', prop_enviada: 'Prop. Enviada',
   ped_fc: 'Ped. de FC', doc_firmada: 'Doc. Firmada', ganado: 'Ganado-Consumo', perdido: 'Perdido',
 }
