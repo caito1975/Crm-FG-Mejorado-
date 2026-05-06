@@ -281,9 +281,57 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2440,
+        2900,
         300
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
+          "conditions": [
+            {
+              "id": "cond-enviado",
+              "leftValue": "={{ $('Evaluar Resultado WA').first().json.etapa_final }}",
+              "rightValue": "enviado",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c01-if-enviado",
+      "name": "Es Enviado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ user_id: $('Evaluar Resultado WA').first().json.user_id, title: 'Lead WA: ' + String($('Evaluar Resultado WA').first().json.name || ''), contact_id: $('Evaluar Resultado WA').first().json.contact_id, stage_id: 'enviado', amount: 0, probability: 15, position: 0, owner_name: null }) }}",
+        "options": {}
+      },
+      "id": "c01-crear-deal",
+      "name": "Crear Deal Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2680, 120],
+      "continueOnFail": true
     }
   ],
   "pinData": {},
@@ -390,24 +438,23 @@
     },
     "Actualizar Contacto Supabase": {
       "main": [
-        [
-          {
-            "node": "Esperar 5 minutos",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Es Enviado?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Es Enviado?": {
+      "main": [
+        [{ "node": "Crear Deal Pipeline", "type": "main", "index": 0 }],
+        [{ "node": "Esperar 5 minutos",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Crear Deal Pipeline": {
+      "main": [
+        [{ "node": "Esperar 5 minutos", "type": "main", "index": 0 }]
       ]
     },
     "Esperar 5 minutos": {
       "main": [
-        [
-          {
-            "node": "Loop - Uno por Uno",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Loop - Uno por Uno", "type": "main", "index": 0 }]
       ]
     }
   },
