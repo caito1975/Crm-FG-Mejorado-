@@ -44,7 +44,8 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
   const [stages, setStages] = useState(initStages)
   const [newStageLabel, setNewStageLabel] = useState('')
   const [newStageColor, setNewStageColor] = useState('oklch(65% 0.11 250)')
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved]   = useState(false)
+  const [saving, setSaving] = useState(false)
   const [theme, setTheme]       = useState<Theme>('Sistema')
   const [density, setDensity]   = useState<Density>('Normal')
   const [currency, setCurrency] = useState<Currency>('ARS')
@@ -64,6 +65,23 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
     setCurrency(savedCurrency)
     applyTheme(savedTheme)
     applyDensity(savedDensity)
+
+    // Sincronizar con Supabase: si localStorage está vacío, usar lo guardado en la cuenta
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const meta = user?.user_metadata || {}
+      const t = meta.crm_theme    as Theme    | undefined
+      const d = meta.crm_density  as Density  | undefined
+      const c = meta.crm_currency as Currency | undefined
+      if (t && !localStorage.getItem('crm-theme')) {
+        setTheme(t); localStorage.setItem('crm-theme', t); applyTheme(t)
+      }
+      if (d && !localStorage.getItem('crm-density')) {
+        setDensity(d); localStorage.setItem('crm-density', d); applyDensity(d)
+      }
+      if (c && !localStorage.getItem('crm-currency')) {
+        setCurrency(c); localStorage.setItem('crm-currency', c)
+      }
+    })
 
     // Load connected integrations (personal — usa authUserId)
     supabase.from('integrations').select('provider,email').eq('user_id', authUserId)
@@ -99,17 +117,20 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
     setTheme(t)
     localStorage.setItem('crm-theme', t)
     applyTheme(t)
+    supabase.auth.updateUser({ data: { crm_theme: t } })
   }
 
   function changeDensity(d: Density) {
     setDensity(d)
     localStorage.setItem('crm-density', d)
     applyDensity(d)
+    supabase.auth.updateUser({ data: { crm_density: d } })
   }
 
   function changeCurrency(c: Currency) {
     setCurrency(c)
     localStorage.setItem('crm-currency', c)
+    supabase.auth.updateUser({ data: { crm_currency: c } })
   }
 
   async function addStage() {
@@ -134,6 +155,13 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
   function flash() {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSaveWorkspace() {
+    setSaving(true)
+    await supabase.auth.updateUser({ data: { crm_theme: theme, crm_density: density, crm_currency: currency } })
+    setSaving(false)
+    flash()
   }
 
   function handleConnect(provider: string) {
@@ -231,8 +259,8 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
                   <option value="EUR">EUR — Euro</option>
                 </select>
               </div>
-              <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={flash}>
-                {saved ? <><Icon name="check" size={13} /> Guardado</> : 'Guardar cambios'}
+              <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={handleSaveWorkspace} disabled={saving}>
+                {saved ? <><Icon name="check" size={13} /> Guardado</> : saving ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </div>
           </div>

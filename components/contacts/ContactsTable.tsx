@@ -28,16 +28,20 @@ interface Props {
   initialContacts: Contact[]
   isOwner?: boolean
   vendorId?: string
+  activityFilter?: 'stale'
+  statusFilter?: string
 }
 
-export default function ContactsTable({ userId, initialContacts, isOwner = true, vendorId }: Props) {
+export default function ContactsTable({ userId, initialContacts, isOwner = true, vendorId, activityFilter, statusFilter: statusFilterProp }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const { formatAmount } = useCurrency()
 
   const [contacts, setContacts]         = useState(initialContacts)
   const [search, setSearch]             = useState('')
-  const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>(
+    (statusFilterProp as ContactStatus) || 'all'
+  )
   const [showModal, setShowModal]       = useState(false)
   const [editContact, setEditContact]   = useState<Contact | null>(null)
 
@@ -62,12 +66,17 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
       })
   }, [isOwner, userId])
 
+  const stale14Cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+
   const filtered = contacts.filter(c => {
     const matchStatus = statusFilter === 'all' || c.status === statusFilter
     const matchSearch = !search || [c.name, c.company, c.email, c.city].some(
       f => f?.toLowerCase().includes(search.toLowerCase())
     )
-    return matchStatus && matchSearch
+    const matchActivity = activityFilter !== 'stale' || (
+      !c.last_touch || new Date(c.last_touch) < stale14Cutoff
+    )
+    return matchStatus && matchSearch && matchActivity
   })
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(c => selected.has(c.id))
@@ -246,6 +255,20 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
             </button>
           </div>
         </div>
+
+        {/* Stale activity banner */}
+        {activityFilter === 'stale' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+            padding: '8px 12px', borderRadius: 6,
+            background: 'var(--warning-soft, rgba(245,158,11,.12))',
+            border: '1px solid rgba(245,158,11,.3)',
+            fontSize: 12, color: 'var(--warning)',
+          }}>
+            <Icon name="flag" size={13} />
+            <span>Mostrando contactos sin actividad en los últimos 14 días · {filtered.length} contacto{filtered.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Status filter tabs */}
         <div className="tabs" style={{ marginBottom: 16 }}>

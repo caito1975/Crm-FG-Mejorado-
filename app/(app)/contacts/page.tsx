@@ -5,7 +5,11 @@ import Topbar from '@/components/layout/Topbar'
 import ContactsTable from '@/components/contacts/ContactsTable'
 import type { Contact } from '@/lib/types'
 
-export default async function ContactsPage() {
+export default async function ContactsPage({
+  searchParams,
+}: {
+  searchParams?: { activity?: string; status?: string }
+}) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -29,6 +33,8 @@ export default async function ContactsPage() {
           initialContacts={(contacts as Contact[]) ?? []}
           isOwner={isOwner}
           vendorId={isOwner ? undefined : user.id}
+          activityFilter={searchParams?.activity === 'stale' ? 'stale' : undefined}
+          statusFilter={searchParams?.status as string | undefined}
         />
       </div>
     </>

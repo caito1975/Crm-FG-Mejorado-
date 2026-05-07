@@ -101,3 +101,270 @@ digest: "1472193778"
  ✓ Compiled /reports in 747ms (936 modules)
  ✓ Compiled /login in 332ms (910 modules)
  ✓ Compiled /pipeline in 124ms (919 modules)
+ ✓ Compiled in 836ms (862 modules)
+ ✓ Compiled in 880ms (862 modules)
+ ✓ Compiled in 2.2s (1767 modules)
+ ✓ Compiled in 406ms (1767 modules)
+ ✓ Compiled in 270ms (905 modules)
+ ✓ Compiled in 446ms (862 modules)
+ ✓ Compiled in 208ms (862 modules)
+ ✓ Compiled in 301ms (862 modules)
+ ✓ Compiled in 187ms (862 modules)
+ ✓ Compiled in 344ms (862 modules)
+ ✓ Compiled in 184ms (862 modules)
+ ✓ Compiled in 168ms (862 modules)
+ ✓ Compiled in 353ms (862 modules)
+ ✓ Compiled in 152ms (862 modules)
+ ✓ Compiled in 1808ms (1878 modules)
+ ✓ Compiled in 836ms (1767 modules)
+   Reload env: .env.local
+ ✓ Compiled in 250ms (1878 modules)
+ ✓ Compiled in 152ms (862 modules)
+ ✓ Compiled in 391ms (862 modules)
+ ✓ Compiled in 141ms (862 modules)
+ ✓ Compiled in 167ms (862 modules)
+ ✓ Compiled in 308ms (862 modules)
+ ✓ Compiled in 224ms (862 modules)
+ ✓ Compiled in 177ms (862 modules)
+ ✓ Compiled in 287ms (862 modules)
+   Reload env: .env.local
+ ✓ Compiled in 582ms (1892 modules)
+ ✓ Compiled in 347ms (862 modules)
+ ✓ Compiled in 317ms (862 modules)
+ ✓ Compiled in 895ms (1767 modules)
+ ✓ Compiled in 1659ms (1767 modules)
+ ✓ Compiled in 286ms (862 modules)
+ ✓ Compiled in 152ms (862 modules)
+ ✓ Compiled in 340ms (862 modules)
+ ✓ Compiled in 181ms (862 modules)
+ ✓ Compiled in 237ms (862 modules)
+ ✓ Compiled in 202ms (862 modules)
+ ✓ Compiled in 233ms (862 modules)
+ ✓ Compiled in 140ms (862 modules)
+ ⨯ Error: Cannot find module './276.js'
+Require stack:
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\dev\hot-middleware.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\dev\hot-reloader-webpack.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\start-server.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1476:15)
+    at C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+    at Module._load (node:internal/modules/cjs/loader:1262:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1576:12)
+    at mod.require (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16)
+    at __webpack_require__.f.require (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js:198:28)
+    at C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js:111:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js:110:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js:162:22)
+    at C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js:13:207
+    at Object.<anonymous> (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js:13:260)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1576:12)
+    at mod.require (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16)
+    at requirePage (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js:109:84)
+    at C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js:103:84
+    at async loadComponentsImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js:103:26)
+    at async DevServer.findPageComponentsImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\next-server.js:714:36)
+    at async DevServer.findPageComponents (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\dev\next-dev-server.js:577:20)
+    at async DevServer.renderPageComponent (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\base-server.js:1910:24)
+    at async DevServer.renderToResponseImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\base-server.js:1962:32)
+    at async DevServer.pipeImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\base-server.js:922:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\next-server.js:272:17)
+    at async DevServer.handleRequestImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\base-server.js:818:17)
+    at async C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\dev\next-dev-server.js:339:20
+    at async Span.traceAsyncFn (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\trace\trace.js:154:20)
+    at async DevServer.handleRequest (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\dev\next-dev-server.js:336:24)
+    at async invokeRender (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\router-server.js:178:21)
+    at async handleRequest (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\router-server.js:355:24)
+    at async requestHandlerImpl (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\router-server.js:379:13)
+    at async Server.requestListener (C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\lib\start-server.js:141:13) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\.next\\server\\webpack-runtime.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\.next\\server\\app\\(auth)\\login\\page.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\require.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\load-components.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\build\\utils.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\dev\\hot-middleware.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\dev\\hot-reloader-webpack.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\lib\\router-utils\\setup-dev-bundler.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\lib\\router-server.js',
+    'C:\\Users\\cperilli\\Documents\\github\\Crm Version Mejorada\\Crm-FG-Mejorado-\\node_modules\\next\\dist\\server\\lib\\start-server.js'
+  ],
+  page: '/login'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 3.7s (1994 modules)
+ GET /login 500 in 4342ms
+ GET /login 200 in 325ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1149ms (1983 modules)
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 1373ms
+ GET /_next/static/chunks/main-app.js?v=1777937171283 404 in 1371ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 1371ms
+ GET /login? 200 in 155ms
+ GET /_next/static/chunks/main-app.js?v=1777937197033 404 in 81ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 54ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 38ms
+ GET /login? 200 in 94ms
+ GET /_next/static/chunks/main-app.js?v=1777937217575 404 in 71ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 62ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 53ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\cookie.js'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/cookie' in C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server for build dependencies doesn't lead to expected result 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\cookie.js', but to 'Error: Can't resolve './vendor-chunks/cookie' in 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/cookie (expected C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\cookie.js)
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/iceberg-js' in C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server for build dependencies doesn't lead to expected result 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\iceberg-js.js', but to 'Error: Can't resolve './vendor-chunks/iceberg-js' in 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/iceberg-js (expected C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\iceberg-js.js)
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/tslib' in C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server for build dependencies doesn't lead to expected result 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\tslib.js', but to 'Error: Can't resolve './vendor-chunks/tslib' in 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/tslib (expected C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\tslib.js)
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/@supabase' in C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server for build dependencies doesn't lead to expected result 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\@supabase.js', but to 'Error: Can't resolve './vendor-chunks/@supabase' in 'C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/@supabase (expected C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\vendor-chunks\@supabase.js)
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\webpack-runtime.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\.next\server\app\(auth)\login\page.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\require.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\utils.js
+<w>  at file dependencies C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs C:\Users\cperilli\Documents\github\Crm Version Mejorada\Crm-FG-Mejorado-\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+ GET /login? 200 in 79ms
+ GET /_next/static/chunks/main-app.js?v=1777937245081 404 in 84ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 57ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 47ms
+ GET /login? 200 in 43ms
+ GET /_next/static/chunks/main-app.js?v=1777937255059 404 in 64ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 36ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 34ms
+ GET /login? 200 in 91ms
+ GET /_next/static/chunks/main-app.js?v=1777937272131 404 in 68ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 53ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 44ms
+ GET /login? 200 in 68ms
+ GET /_next/static/chunks/main-app.js?v=1777937277740 404 in 44ms
+ GET /_next/static/chunks/app/(auth)/login/page.js 404 in 33ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 40ms
+ ✓ Compiled in 3s (1994 modules)
+ ✓ Compiled in 1443ms (1994 modules)
+ ✓ Compiled in 1019ms (1994 modules)
+ ✓ Compiled in 202ms (1048 modules)
+ ✓ Compiled in 213ms (1048 modules)
+ ✓ Compiled in 210ms (1048 modules)
+ ✓ Compiled in 350ms (1048 modules)
+ ✓ Compiled in 187ms (1048 modules)
+ ✓ Compiled in 188ms (1048 modules)
+ ✓ Compiled in 189ms (1048 modules)
+ ✓ Compiled in 196ms (1048 modules)
+ ✓ Compiled in 274ms (1048 modules)
+ ✓ Compiled in 216ms (1048 modules)
+ ✓ Compiled in 591ms (1994 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1086ms (1983 modules)
+ GET /login 404 in 1389ms
+ GET /_next/static/css/app/layout.css?v=1777943418353 404 in 56ms
+ GET /_next/static/chunks/main-app.js?v=1777943418353 404 in 31ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 50ms
+ GET /login 404 in 61ms
+ GET /_next/static/css/app/layout.css?v=1777943422682 404 in 41ms
+ GET /_next/static/chunks/main-app.js?v=1777943422682 404 in 49ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 26ms
+ GET /login 404 in 80ms
+ GET /login 404 in 72ms
+ GET /_next/static/css/app/layout.css?v=1777943447127 404 in 85ms
+ GET /_next/static/chunks/main-app.js?v=1777943447127 404 in 114ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 62ms
+ ✓ Compiled in 2.4s (1048 modules)
+ ✓ Compiled in 536ms (1048 modules)
+ ✓ Compiled in 407ms (1048 modules)
+ ✓ Compiled in 567ms (1048 modules)
+ ✓ Compiled in 205ms (1048 modules)
+ ✓ Compiled in 355ms (1048 modules)
+ [TypeError: fetch failed] {
+  cause:  [Error: getaddrinfo ENOTFOUND resxhwxubboicfpoftjp.supabase.co] {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'resxhwxubboicfpoftjp.supabase.co'
+}
+}
+ GET /login 200 in 211ms
+ ○ Compiling / ...
+ ✓ Compiled / in 973ms (1996 modules)
+ GET / 307 in 1206ms
+ GET /dashboard 200 in 1932ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 940ms (1985 modules)
+ GET /_next/static/chunks/app/(app)/dashboard/page.js 404 in 1055ms
+ GET /_next/static/chunks/app/(app)/layout.js 404 in 1055ms
+ GET /dashboard 200 in 1196ms
+ GET /_next/static/chunks/app/(app)/dashboard/page.js 404 in 43ms
+ GET /_next/static/chunks/app/(app)/layout.js 404 in 43ms
+ GET /dashboard 200 in 1102ms
+ GET /_next/static/chunks/app/(app)/dashboard/page.js 404 in 76ms
+ GET /_next/static/chunks/app/(app)/layout.js 404 in 74ms
+ ✓ Compiled in 1858ms (1994 modules)
+ ✓ Compiled in 2.2s (1994 modules)
+ ✓ Compiled in 2.3s (1048 modules)
+ ✓ Compiled in 290ms (1053 modules)
+ ✓ Compiled in 5.9s (1999 modules)

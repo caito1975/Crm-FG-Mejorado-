@@ -51,9 +51,9 @@ export default function Sidebar({
   ]
 
   const saved = [
-    { l: 'Mis deals abiertos',  i: 'pipeline' },
-    { l: 'Clientes recurrentes', i: 'star' },
-    { l: 'Sin actividad +14d',   i: 'flag' },
+    { l: 'Mis deals abiertos',   i: 'pipeline', href: '/pipeline' },
+    { l: 'Clientes recurrentes', i: 'star',      href: '/contacts?status=cliente' },
+    { l: 'Sin actividad +14d',   i: 'flag',      href: '/contacts?activity=stale' },
   ]
 
   const isActive = (href: string) => {
@@ -113,10 +113,15 @@ export default function Sidebar({
 
         <div className="nav-section">Vistas guardadas</div>
         {saved.map(s => (
-          <div key={s.l} className="nav-item">
+          <Link
+            key={s.l}
+            href={s.href}
+            className="nav-item"
+            style={{ textDecoration: 'none' }}
+          >
             <span className="nav-ico"><Icon name={s.i} size={14} /></span>
             <span>{s.l}</span>
-          </div>
+          </Link>
         ))}
       </nav>
 
