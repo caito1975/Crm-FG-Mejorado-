@@ -36,6 +36,7 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
   const [invitePhone, setInvitePhone] = useState('')
   const [inviteRole, setInviteRole] = useState('')
   const [invitePerm, setInvitePerm] = useState<'vendedor' | 'sdr' | 'manager' | 'viewer'>('vendedor')
+  const [invitePassword, setInvitePassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [pwMember, setPwMember] = useState<TeamMember | null>(null)
   const [newPassword, setNewPassword] = useState('')
@@ -45,6 +46,7 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
   async function addMember() {
     if (!inviteName.trim()) return
     setSaving(true)
+
     const { data, error } = await supabase.from('team_members').insert({
       owner_id: userId,
       name: inviteName.trim(),
@@ -53,16 +55,20 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
       role: inviteRole.trim() || 'Vendedor',
       permission: invitePerm,
       tone: 'accent',
-      status: inviteEmail.trim() ? 'invitado' : 'activo',
+      status: 'activo',
       quota: 0, sold: 0, deals_count: 0, win_rate: 0,
     }).select().single()
 
-    // Send email invite so vendor can log in
-    if (!error && inviteEmail.trim()) {
-      await fetch('/api/team/invite', {
+    // If email + password provided, create auth user directly (no invite email)
+    if (!error && data && inviteEmail.trim() && invitePassword.trim()) {
+      await fetch('/api/team/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          password: invitePassword.trim(),
+          member_id: data.id,
+        }),
       })
     }
 
@@ -74,6 +80,7 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
       setInviteEmail('')
       setInvitePhone('')
       setInviteRole('')
+      setInvitePassword('')
     }
   }
 
@@ -364,6 +371,19 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
                   <option value="admin">Admin</option>
                   <option value="viewer">Viewer</option>
                 </select>
+              </div>
+              <div className="field">
+                <label className="lbl">Contraseña inicial</label>
+                <input
+                  className="input"
+                  type="password"
+                  value={invitePassword}
+                  onChange={e => setInvitePassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                />
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  El vendedor puede cambiarla después desde su perfil.
+                </span>
               </div>
             </div>
             <div className="modal-foot">
