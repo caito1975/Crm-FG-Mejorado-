@@ -37,6 +37,10 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
   const [inviteRole, setInviteRole] = useState('')
   const [invitePerm, setInvitePerm] = useState<'vendedor' | 'sdr' | 'manager' | 'viewer'>('vendedor')
   const [saving, setSaving] = useState(false)
+  const [pwMember, setPwMember] = useState<TeamMember | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwError, setPwError] = useState('')
 
   async function addMember() {
     if (!inviteName.trim()) return
@@ -71,6 +75,22 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
       setInvitePhone('')
       setInviteRole('')
     }
+  }
+
+  async function changePassword() {
+    if (!pwMember || !newPassword) return
+    setPwSaving(true)
+    setPwError('')
+    const res = await fetch('/api/team/set-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member_id: pwMember.id, password: newPassword }),
+    })
+    const json = await res.json()
+    setPwSaving(false)
+    if (!res.ok) { setPwError(json.error || 'Error'); return }
+    setPwMember(null)
+    setNewPassword('')
   }
 
   async function removeMember(id: string) {
@@ -152,9 +172,14 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
                   <td className="cell-mono">{m.win_rate}%</td>
                   <td className="cell-mono">{formatCurrency(m.quota)}</td>
                   <td>
-                    <button className="btn ghost sm icon" onClick={() => removeMember(m.id)}>
-                      <Icon name="trash" size={13} />
-                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn ghost sm" onClick={() => { setPwMember(m); setNewPassword(''); setPwError('') }} title="Cambiar contraseña">
+                        <Icon name="key" size={13} />
+                      </button>
+                      <button className="btn ghost sm icon" onClick={() => removeMember(m.id)}>
+                        <Icon name="trash" size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -269,6 +294,38 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
           <div className="empty" style={{ padding: '40px 0' }}>
             <Icon name="doc" size={28} />
             <p style={{ marginTop: 8 }}>Los logs de auditoría estarán disponibles próximamente.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Change password modal */}
+      {pwMember && (
+        <div className="modal-overlay" onClick={() => setPwMember(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 380 }}>
+            <div className="modal-head">
+              <h2>Cambiar contraseña — {pwMember.name}</h2>
+              <button className="btn ghost icon" onClick={() => setPwMember(null)}><Icon name="x" size={14} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="field">
+                <label className="lbl">Nueva contraseña</label>
+                <input
+                  className="input"
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoFocus
+                />
+              </div>
+              {pwError && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{pwError}</p>}
+            </div>
+            <div className="modal-foot">
+              <button className="btn ghost" onClick={() => setPwMember(null)}>Cancelar</button>
+              <button className="btn primary" onClick={changePassword} disabled={newPassword.length < 6 || pwSaving}>
+                {pwSaving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
