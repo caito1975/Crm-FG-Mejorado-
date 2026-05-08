@@ -3,39 +3,20 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## CRM OUTREACH — Supabase v4\n### francisco.carosIA\nLee leads de Supabase, envia WA y actualiza estado.",
-        "height": 200,
-        "width": 380,
-        "color": 4
+        "content": "## CRM OUTREACH — Supabase v5\n### francisco.carosIA\nLee leads de Supabase, envia WA y actualiza estado.\nSI/NO via texto — Baileys no soporta botones interactivos.",
+        "height": 200, "width": 420, "color": 4
       },
-      "id": "c01-sticky",
-      "name": "Header",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -200,
-        -160
-      ]
+      "id": "c01-sticky", "name": "Header",
+      "type": "n8n-nodes-base.stickyNote", "typeVersion": 1,
+      "position": [-200, -160]
     },
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
-              "expression": "*/10 8-17 * * 1-6"
-            }
-          ]
-        }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "*/10 8-17 * * 1-6" }] }
       },
-      "id": "c01-schedule",
-      "name": "Schedule Trigger",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        240,
-        300
-      ]
+      "id": "c01-schedule", "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger", "typeVersion": 1.2,
+      "position": [240, 300]
     },
     {
       "parameters": {
@@ -43,101 +24,50 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            }
-          ]
-        },
+        "headerParameters": { "parameters": [
+          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" }
+        ]},
         "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "select",
-              "value": "id,name,phone,company,status,rubro,email,city,user_id"
-            },
-            {
-              "name": "status",
-              "value": "eq.lead"
-            },
-            {
-              "name": "phone",
-              "value": "not.is.null"
-            },
-            {
-              "name": "order",
-              "value": "created_at.asc"
-            }
-          ]
-        },
+        "queryParameters": { "parameters": [
+          { "name": "select", "value": "id,name,phone,company,status,rubro,email,city,user_id" },
+          { "name": "status", "value": "eq.lead" },
+          { "name": "phone",  "value": "not.is.null" },
+          { "name": "order",  "value": "created_at.asc" }
+        ]},
         "options": {}
       },
-      "id": "c01-leer",
-      "name": "Leer Contactos Supabase",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        460,
-        300
-      ]
+      "id": "c01-leer", "name": "Leer Contactos Supabase",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [460, 300]
     },
     {
       "parameters": {
-        "jsCode": "// n8n HTTP Request v4.2 splits Supabase arrays automatically\nconst items = $input.all();\nif (items.length === 0) return [];\nif (!Array.isArray(items[0].json)) {\n  return items.map(item => ({ json: item.json }));\n}\nconst arr = items[0].json;\nreturn arr.filter(Boolean).map(contact => ({ json: contact }));"
+        "jsCode": "const items = $input.all();\nif (items.length === 0) return [];\nif (!Array.isArray(items[0].json)) {\n  return items.map(item => ({ json: item.json }));\n}\nconst arr = items[0].json;\nreturn arr.filter(Boolean).map(contact => ({ json: contact }));"
       },
-      "id": "c01-separar",
-      "name": "Separar Contactos",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        680,
-        300
-      ]
+      "id": "c01-separar", "name": "Separar Contactos",
+      "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": { "maxItems": 2 },
+      "id": "c01-limitar", "name": "Limitar a 2 por corrida",
+      "type": "n8n-nodes-base.limit", "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "c01-loop", "name": "Loop - Uno por Uno",
+      "type": "n8n-nodes-base.splitInBatches", "typeVersion": 3,
+      "position": [1120, 300]
     },
     {
       "parameters": {
-        "maxItems": 2
+        "jsCode": "const item = $input.first().json;\nconst phoneRaw = (item.phone + '').replace(/[^0-9]/g, '');\n\nif (!phoneRaw || phoneRaw.length < 7) return [];\n\nconst waNumber = phoneRaw.length === 10 ? '549' + phoneRaw : phoneRaw;\n\nconst nombre = item.name || 'ahi';\nconst crmNumber = '5491144123687';\n\nconst mensaje = 'Hola ' + nombre + ' \\u{1F44B}\\n'\n  + '\\xBFInvert\\xEDs en publicidad en Instagram o Facebook para tu negocio?\\n\\n'\n  + 'Muchos anunciantes todav\\xEDa pagan sus campa\\xF1as con costos e impuestos innecesarios que terminan reduciendo su presupuesto publicitario.\\n\\n'\n  + 'En FG Medios \\u2014Partner oficial de Meta\\u2014 ayudamos a m\\xE1s de 900 empresas y emprendedores a optimizar la forma en que invierten en publicidad digital \\u2705\\n\\n'\n  + 'En una charla de 15 minutos te mostramos:\\n'\n  + '\\u2714\\uFE0F C\\xF3mo reducir sobrecostos en campa\\xF1as\\n'\n  + '\\u2714\\uFE0F C\\xF3mo mejorar el rendimiento de tu inversi\\xF3n\\n'\n  + '\\u2714\\uFE0F Qu\\xE9 alternativas usan hoy las empresas para escalar mejor en Meta Ads\\n\\n'\n  + 'Toc\\xE1 para responder:\\n\\n'\n  + '\\u2705 *S\\xED, quiero saber m\\xE1s*\\n'\n  + 'https://wa.me/' + crmNumber + '?text=SI\\n\\n'\n  + '\\u274C *No, gracias*\\n'\n  + 'https://wa.me/' + crmNumber + '?text=NO';\n\nreturn [{\n  json: { ...item, _wa_number: waNumber, mensaje: mensaje }\n}];"
       },
-      "id": "c01-limitar",
-      "name": "Limitar a 2 por corrida",
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "c01-loop",
-      "name": "Loop - Uno por Uno",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [
-        1120,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst phoneRaw = (item.phone + '').replace(/[^0-9]/g, '');\n\n// Skip contacts without valid phone\nif (!phoneRaw || phoneRaw.length < 7) return [];\n\nconst waNumber = phoneRaw.length === 10 ? '549' + phoneRaw : phoneRaw;\n\nconst nombre = item.name || 'ahi';\nconst mensaje = 'Hola ' + nombre + ' \\u{1F44B}\\n'\n  + '\\xBFInvert\\xEDs en publicidad en Instagram o Facebook para tu negocio?\\n\\n'\n  + 'Muchos anunciantes todav\\xEDa pagan sus campa\\xF1as con costos e impuestos innecesarios que terminan reduciendo su presupuesto publicitario.\\n\\n'\n  + 'En FG Medios \\u2014Partner oficial de Meta\\u2014 ayudamos a m\\xE1s de 900 empresas y emprendedores a optimizar la forma en que invierten en publicidad digital \\u2705\\n\\n'\n  + 'En una charla de 15 minutos te mostramos:\\n'\n  + '\\u2714\\uFE0F C\\xF3mo reducir sobrecostos en campa\\xF1as\\n'\n  + '\\u2714\\uFE0F C\\xF3mo mejorar el rendimiento de tu inversi\\xF3n\\n'\n  + '\\u2714\\uFE0F Qu\\xE9 alternativas usan hoy las empresas para escalar mejor en Meta Ads\\n\\n'\n  + 'Si te interesa conocer m\\xE1s, respond\\xE9 con un *S\\xCD* y te contamos \\u{1F447}   https://meta.fgmedios.com/';\n\nreturn [{\n  json: {\n    ...item,\n    _wa_number: waNumber,\n    mensaje: mensaje\n  }\n}];"
-      },
-      "id": "c01-prep",
-      "name": "Preparar Body WA",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1340,
-        300
-      ]
+      "id": "c01-prep", "name": "Preparar Body WA",
+      "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [1340, 300]
     },
     {
       "parameters": {
@@ -145,51 +75,28 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendMedia/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "apikey",
-              "value": "429683C4C977415CAAFCCE10F7D57E11"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
+        ]},
+        "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ ({ number: $json._wa_number, mediatype: 'image', mimetype: 'image/png', caption: $json.mensaje, media: 'https://meta.fgmedios.com/img/og-image-square3.png' }) }}",
         "options": {
-          "response": {
-            "response": {
-              "outputPropertyName": "_evo_resp"
-            }
-          }
+          "response": { "response": { "outputPropertyName": "_evo_resp" } }
         }
       },
-      "id": "c01-enviar",
-      "name": "Enviar WhatsApp",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1560,
-        300
-      ],
+      "id": "c01-enviar", "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [1560, 300],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const waResp = $input.first().json;\nconst prep   = $('Preparar Body WA').first().json;\n\nconst respStr = JSON.stringify(waResp);\nconst failed  = waResp.error !== undefined\n             || respStr.includes('\"exists\":false')\n             || respStr.includes('Bad Request')\n             || respStr.includes('\"status\":404')\n             || respStr.includes('\"status\":500');\n\nconst now_str = new Date().toISOString();\n\nreturn [{ json: {\n  phone:      prep.phone,\n  rubro:      prep.rubro,\n  mensaje:    prep.mensaje,\n  name:       prep.name,\n  contact_id: prep.id,\n  user_id:    prep.user_id,\n  now_str:    now_str,\n  etapa_final: failed ? 'no_enviado' : 'enviado'\n} }];"
+        "jsCode": "const waResp = $('Enviar WhatsApp').first().json;\nconst prep   = $('Preparar Body WA').first().json;\n\nconst respStr = JSON.stringify(waResp);\nconst failed  = waResp.error !== undefined\n             || respStr.includes('\"exists\":false')\n             || respStr.includes('Bad Request')\n             || respStr.includes('\"status\":404')\n             || respStr.includes('\"status\":500');\n\nconst now_str = new Date().toISOString();\n\nreturn [{ json: {\n  phone:       prep.phone,\n  rubro:       prep.rubro,\n  mensaje:     prep.mensaje,\n  name:        prep.name,\n  contact_id:  prep.id,\n  user_id:     prep.user_id,\n  now_str:     now_str,\n  etapa_final: failed ? 'no_enviado' : 'enviado'\n} }];"
       },
-      "id": "c01-evaluar",
-      "name": "Evaluar Resultado WA",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1780,
-        300
-      ]
+      "id": "c01-evaluar", "name": "Evaluar Resultado WA",
+      "type": "n8n-nodes-base.code", "typeVersion": 2,
+      "position": [1780, 300]
     },
     {
       "parameters": {
@@ -197,39 +104,19 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
+        "headerParameters": { "parameters": [
+          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+          { "name": "Content-Type",  "value": "application/json" },
+          { "name": "Prefer",        "value": "return=minimal" }
+        ]},
+        "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $json.user_id, kind: 'call_out', who: 'CarosIA CRM', body: 'WhatsApp ' + ($json.etapa_final === 'enviado' ? 'enviado' : 'fallido') + ': ' + String($json.name || ''), contact_id: $json.contact_id }) }}",
         "options": {}
       },
-      "id": "c01-actividad",
-      "name": "Registrar Actividad Supabase",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2000,
-        300
-      ]
+      "id": "c01-actividad", "name": "Registrar Actividad Supabase",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [2000, 300]
     },
     {
       "parameters": {
@@ -237,193 +124,45 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $('Evaluar Resultado WA').first().json.contact_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
+        "headerParameters": { "parameters": [
+          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
+          { "name": "Content-Type",  "value": "application/json" },
+          { "name": "Prefer",        "value": "return=minimal" }
+        ]},
+        "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ ({ status: $('Evaluar Resultado WA').first().json.etapa_final, last_touch: $('Evaluar Resultado WA').first().json.now_str }) }}",
         "options": {}
       },
-      "id": "c01-actualizar",
-      "name": "Actualizar Contacto Supabase",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2220,
-        300
-      ]
+      "id": "c01-actualizar", "name": "Actualizar Contacto Supabase",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
+      "position": [2220, 300]
     },
     {
-      "parameters": {
-        "amount": 5,
-        "unit": "minutes"
-      },
-      "id": "c01-esperar",
-      "name": "Esperar 5 minutos",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        2440,
-        300
-      ]
+      "parameters": { "amount": 5, "unit": "minutes" },
+      "id": "c01-esperar", "name": "Esperar 5 minutos",
+      "type": "n8n-nodes-base.wait", "typeVersion": 1.1,
+      "position": [2440, 300]
     }
   ],
   "pinData": {},
   "connections": {
-    "Schedule Trigger": {
-      "main": [
-        [
-          {
-            "node": "Leer Contactos Supabase",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Leer Contactos Supabase": {
-      "main": [
-        [
-          {
-            "node": "Separar Contactos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Separar Contactos": {
-      "main": [
-        [
-          {
-            "node": "Limitar a 2 por corrida",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Limitar a 2 por corrida": {
-      "main": [
-        [
-          {
-            "node": "Loop - Uno por Uno",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop - Uno por Uno": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Preparar Body WA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Preparar Body WA": {
-      "main": [
-        [
-          {
-            "node": "Enviar WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar WhatsApp": {
-      "main": [
-        [
-          {
-            "node": "Evaluar Resultado WA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Evaluar Resultado WA": {
-      "main": [
-        [
-          {
-            "node": "Registrar Actividad Supabase",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Registrar Actividad Supabase": {
-      "main": [
-        [
-          {
-            "node": "Actualizar Contacto Supabase",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Actualizar Contacto Supabase": {
-      "main": [
-        [
-          {
-            "node": "Esperar 5 minutos",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Esperar 5 minutos": {
-      "main": [
-        [
-          {
-            "node": "Loop - Uno por Uno",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Schedule Trigger":             { "main": [[{ "node": "Leer Contactos Supabase",    "type": "main", "index": 0 }]] },
+    "Leer Contactos Supabase":      { "main": [[{ "node": "Separar Contactos",          "type": "main", "index": 0 }]] },
+    "Separar Contactos":            { "main": [[{ "node": "Limitar a 2 por corrida",    "type": "main", "index": 0 }]] },
+    "Limitar a 2 por corrida":      { "main": [[{ "node": "Loop - Uno por Uno",         "type": "main", "index": 0 }]] },
+    "Loop - Uno por Uno":           { "main": [[], [{ "node": "Preparar Body WA",       "type": "main", "index": 0 }]] },
+    "Preparar Body WA":             { "main": [[{ "node": "Enviar WhatsApp",            "type": "main", "index": 0 }]] },
+    "Enviar WhatsApp":              { "main": [[{ "node": "Evaluar Resultado WA",       "type": "main", "index": 0 }]] },
+    "Evaluar Resultado WA":         { "main": [[{ "node": "Registrar Actividad Supabase","type": "main", "index": 0 }]] },
+    "Registrar Actividad Supabase": { "main": [[{ "node": "Actualizar Contacto Supabase","type": "main", "index": 0 }]] },
+    "Actualizar Contacto Supabase": { "main": [[{ "node": "Esperar 5 minutos",          "type": "main", "index": 0 }]] },
+    "Esperar 5 minutos":            { "main": [[{ "node": "Loop - Uno por Uno",         "type": "main", "index": 0 }]] }
   },
   "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "versionId": "crm-01-supabase-v4",
-  "meta": {
-    "instanceId": "cperilli-app-n8n-cloud"
-  },
+  "settings": { "executionOrder": "v1" },
+  "versionId": "crm-01-supabase-v7",
+  "meta": { "instanceId": "cperilli-app-n8n-cloud" },
   "id": "crm-01-outreach-supabase",
-  "tags": [
-    "CRM",
-    "WhatsApp",
-    "Outreach",
-    "Supabase"
-  ]
+  "tags": ["CRM", "WhatsApp", "Outreach", "Supabase"]
 }
