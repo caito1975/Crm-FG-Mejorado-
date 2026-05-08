@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { Deal, Contact, PipelineStage } from '@/lib/types'
 import { useCurrency } from '@/lib/useCurrency'
 import {
@@ -10,7 +11,15 @@ import {
 
 type Tab = 'funnel' | 'contactos' | 'pipeline'
 
-interface Props { deals: Deal[]; contacts: Contact[]; stages: PipelineStage[] }
+interface Props {
+  deals: Deal[]
+  contacts: Contact[]
+  stages: PipelineStage[]
+  isOwner?: boolean
+  vendorName?: string | null
+  userId: string
+  currentUserId: string
+}
 
 const CHART_COLORS = [
   '#4ade80','#818cf8','#f87171','#fb923c','#facc15',
@@ -48,9 +57,31 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-export default function ReportsClient({ deals, contacts, stages }: Props) {
+export default function ReportsClient({ deals: initialDeals, contacts: initialContacts, stages, isOwner = true, vendorName, userId, currentUserId }: Props) {
+  const [deals,    setDeals]    = useState(initialDeals)
+  const [contacts, setContacts] = useState(initialContacts)
   const [tab, setTab] = useState<Tab>('funnel')
+  const supabase = createClient()
   const { formatAmount } = useCurrency()
+
+  useEffect(() => {
+    const dealsQ    = () => isOwner
+      ? supabase.from('deals').select('*, contact:contacts(company, rubro, owner_name)').eq('user_id', userId)
+      : supabase.from('deals').select('*, contact:contacts(company, rubro, owner_name)').eq('user_id', userId).eq('assigned_to', currentUserId)
+    const contactsQ = () => isOwner
+      ? supabase.from('contacts').select('*').eq('user_id', userId)
+      : supabase.from('contacts').select('*').eq('user_id', userId).eq('assigned_to', currentUserId)
+
+    const ch = supabase.channel('reports-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals',    filter: `user_id=eq.${userId}` }, () => {
+        dealsQ().then(({ data }) => data && setDeals(data as Deal[]))
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` }, () => {
+        contactsQ().then(({ data }) => data && setContacts(data as Contact[]))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [userId])
 
   const won  = deals.filter(d => d.stage_id === 'ganado')
   const lost = deals.filter(d => d.stage_id === 'perdido')
@@ -101,8 +132,33 @@ export default function ReportsClient({ deals, contacts, stages }: Props) {
       <div className="page-head">
         <div>
           <h1>Reportes</h1>
-          <p>Análisis del pipeline y contactos</p>
+          <p>
+            {isOwner
+              ? 'Análisis del pipeline y contactos'
+              : `Mis asignaciones · ${contacts.length} contactos · ${deals.length} deals`
+            }
+          </p>
         </div>
+        {!isOwner && vendorName && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 8,
+            background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+          }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: '50%',
+              background: 'var(--accent)', color: 'white',
+              display: 'grid', placeItems: 'center',
+              fontSize: 10, fontWeight: 700,
+            }}>
+              {vendorName.split(' ').map(p => p[0]).slice(0, 2).join('')}
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{vendorName}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Reporte personal</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI cards */}

@@ -27,15 +27,19 @@ export default async function DashboardPage() {
     { data: tasks },
     { data: activities },
   ] = await Promise.all([
-    supabase.from('contacts').select('*').eq('user_id', workspaceId).order('created_at', { ascending: false }),
-    supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', workspaceId),
+    isOwner
+      ? supabase.from('contacts').select('*').eq('user_id', workspaceId).order('created_at', { ascending: false })
+      : supabase.from('contacts').select('*').eq('user_id', workspaceId).eq('assigned_to', user.id).order('created_at', { ascending: false }),
+    isOwner
+      ? supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', workspaceId)
+      : supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', workspaceId).eq('assigned_to', user.id),
     supabase.from('tasks').select('*, contact:contacts(id,name,company)').eq('user_id', workspaceId).order('created_at', { ascending: false }),
     supabase.from('activities').select('*, contact:contacts(id,name,company)').eq('user_id', workspaceId).order('created_at', { ascending: false }).limit(10),
   ])
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
 
-  // ── Owner only: build per-vendor stats ──────────────────────────────────────
+  // ── Build per-vendor stats (owner sees team + themselves) ───────────────────
   let teamStats: VendorStat[] = []
   let vendorName: string | null = null
 
@@ -48,28 +52,29 @@ export default async function DashboardPage() {
       .not('member_user_id', 'is', null)
       .order('name')
 
-    if (members) {
-      const allContacts = (contacts as Contact[]) ?? []
-      const allDeals    = (deals as Deal[]) ?? []
+    const allContacts = (contacts as Contact[]) ?? []
+    const allDeals    = (deals as Deal[]) ?? []
 
-      teamStats = members.map(m => {
-        const mContacts = allContacts.filter(c => c.assigned_to === m.member_user_id)
-        const mDeals    = allDeals.filter(d => {
-          const contactId = d.contact_id
-          return contactId && mContacts.some(c => c.id === contactId)
-        })
-        const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
-        const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
-        return {
-          member_user_id: m.member_user_id,
-          name:           m.name,
-          leads:          mContacts.length,
-          active_deals:   activeDeals.length,
-          pipeline:       activeDeals.reduce((s, d) => s + d.amount, 0),
-          won:            wonDeals.length,
-        }
-      })
+    const buildStat = (memberId: string, name: string): VendorStat => {
+      const mContacts   = allContacts.filter(c => c.assigned_to === memberId)
+      const mDeals      = allDeals.filter(d => d.contact_id && mContacts.some(c => c.id === d.contact_id))
+      const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
+      const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
+      return {
+        member_user_id: memberId,
+        name,
+        leads:        mContacts.length,
+        active_deals: activeDeals.length,
+        pipeline:     activeDeals.reduce((s, d) => s + d.amount, 0),
+        won:          wonDeals.length,
+      }
     }
+
+    const vendorStats  = (members ?? []).map(m => buildStat(m.member_user_id, m.name))
+    // Include owner's own assigned leads in the team stats
+    const ownerAssigned = allContacts.filter(c => c.assigned_to === workspaceId)
+    const ownerStat     = ownerAssigned.length > 0 ? buildStat(workspaceId, `${userName} (yo)`) : null
+    teamStats = [...(ownerStat ? [ownerStat] : []), ...vendorStats]
   } else {
     // Vendor: resolve their display name
     const { data: member } = await supabase
@@ -94,6 +99,7 @@ export default async function DashboardPage() {
       <div className="view">
         <DashboardClient
           userId={workspaceId}
+          currentUserId={user.id}
           userName={userName}
           isOwner={isOwner}
           vendorName={vendorName}

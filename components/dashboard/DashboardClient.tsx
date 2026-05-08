@@ -16,6 +16,7 @@ const ACTIVITY_ICONS: Record<string, string> = {
 
 interface Props {
   userId: string
+  currentUserId: string
   userName: string
   isOwner: boolean
   vendorName: string | null
@@ -42,7 +43,7 @@ function getPeriodStart(p: Period): Date {
 }
 
 export default function DashboardClient({
-  userId, userName, isOwner, vendorName, teamStats,
+  userId, currentUserId, userName, isOwner, vendorName, teamStats,
   initialContacts, initialDeals, initialTasks, initialActivities,
 }: Props) {
   const [contacts,   setContacts]   = useState(initialContacts)
@@ -99,6 +100,13 @@ export default function DashboardClient({
     const d = new Date(t.due_date)
     return d >= todayStart && d <= todayEnd
   })
+
+  // Leads/deals personales — funciona para owner y vendor
+  const myContacts  = contacts.filter(c => c.assigned_to === currentUserId)
+  const myOpenDeals = isOwner
+    ? deals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido' && myContacts.some(c => c.id === d.contact_id))
+    : openDeals
+  const myPipeline  = myOpenDeals.reduce((s, d) => s + d.amount, 0)
 
   const displayName = isOwner ? userName.split(' ')[0] : (vendorName?.split(' ')[0] ?? userName.split(' ')[0])
 
@@ -172,6 +180,118 @@ export default function DashboardClient({
         <StatTile lbl="Perdidos"         val={lostDeals.length.toString()}         delta={`de ${filteredDeals.length} totales`} up={lostDeals.length===0} color="oklch(60% 0.14 25)" data={[0,0,1,1,1,2,2,2,lostDeals.length]} />
         <StatTile lbl="Nuevos contactos" val={filteredContacts.length.toString()} delta={`${filteredContacts.filter(c=>c.status==='cliente').length} clientes`} up color="oklch(70% 0.13 75)" data={[5,8,10,12,15,16,18,20,filteredContacts.length]} />
       </div>
+
+      {/* ── Mis Leads Interesados + Deals Activos (owner con asignados + todos los vendors) */}
+      {(!isOwner || myContacts.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+
+          {/* Leads asignados */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h3>Mis leads</h3>
+                <div className="sub">
+                  {myContacts.length} asignados
+                  {' · '}{myContacts.filter(c => c.status === 'interesado' || c.status === 'oportunidad').length} activos
+                </div>
+              </div>
+              <a href="/contacts">
+                <button className="btn ghost sm">Ver todos <Icon name="chev_right" size={12} /></button>
+              </a>
+            </div>
+            <div>
+              {myContacts.slice(0, 6).map((c, i, arr) => {
+                const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
+                  interesado:  { bg: 'oklch(95% 0.04 230)', color: 'var(--info)',    border: 'var(--info)',    label: 'Interesado'  },
+                  oportunidad: { bg: 'var(--accent-soft)',  color: 'var(--accent)', border: 'var(--accent)', label: 'Oportunidad' },
+                  cliente:     { bg: 'oklch(95% 0.04 145)', color: 'var(--success)', border: 'var(--success)', label: 'Cliente'    },
+                  enviado:     { bg: 'oklch(97% 0.05 80)',  color: 'var(--warning)', border: 'var(--warning)', label: 'Enviado'    },
+                  contactado:  { bg: 'var(--bg-sunken)',    color: 'var(--text-muted)', border: 'var(--border)', label: 'Contactado' },
+                  archivado:   { bg: 'var(--bg-sunken)',    color: 'var(--text-subtle)', border: 'var(--border)', label: 'Archivado' },
+                }
+                const s = STATUS_STYLE[c.status] ?? { bg: 'var(--bg-sunken)', color: 'var(--text-muted)', border: 'var(--border)', label: c.status ?? 'Lead' }
+                return (
+                  <div key={c.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 16px',
+                    borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      background: 'var(--accent-soft)', color: 'var(--accent)',
+                      display: 'grid', placeItems: 'center',
+                      fontSize: 11, fontWeight: 600, flexShrink: 0,
+                    }}>
+                      {c.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('')}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.name}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                        {c.company || '—'}{c.rubro ? ` · ${c.rubro}` : ''}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+                    }}>
+                      {s.label}
+                    </span>
+                  </div>
+                )
+              })}
+              {myContacts.length === 0 && (
+                <div className="empty" style={{ padding: '28px 24px' }}><p>Sin leads asignados aún</p></div>
+              )}
+            </div>
+          </div>
+
+          {/* Deals activos */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h3>Mis deals activos</h3>
+                <div className="sub">{myOpenDeals.length} deals · {formatAmount(myPipeline)}</div>
+              </div>
+              <a href="/pipeline">
+                <button className="btn ghost sm">Pipeline <Icon name="chev_right" size={12} /></button>
+              </a>
+            </div>
+            <div>
+              {myOpenDeals.slice(0, 6).map((d, i, arr) => (
+                <div key={d.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {d.title}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                      {(d.contact as any)?.company || (d.contact as any)?.name || '—'}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 }}>
+                      {formatAmount(d.amount)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                      {d.stage_id?.replace(/_/g, ' ')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {myOpenDeals.length === 0 && (
+                <div className="empty" style={{ padding: '28px 24px' }}>
+                  <p>Sin deals activos · <a href="/pipeline" style={{ color: 'var(--accent)' }}>Crear deal</a></p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Team performance (owner only) ─────────────────────────────────── */}
       {isOwner && teamStats.length > 0 && (

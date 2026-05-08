@@ -1,9 +1,13 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { InboxMessage } from '@/lib/types'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
+
+type Channel = 'wa' | 'email'
+type SendStatus = { type: 'ok' | 'err'; msg: string } | null
+type ContactInfo = { id: string; phone: string | null; email: string | null } | null
 
 const LABELS_COLORS: Record<string, string> = {
   cliente:     'success',
@@ -20,10 +24,31 @@ interface Props {
 
 export default function InboxClient({ userId, initialMessages }: Props) {
   const supabase = createClient()
-  const [messages, setMessages] = useState(initialMessages)
-  const [selected, setSelected] = useState<InboxMessage | null>(initialMessages[0] ?? null)
-  const [filter, setFilter]     = useState<'all' | 'unread' | 'starred'>('all')
-  const [reply, setReply]       = useState('')
+  const [messages, setMessages]       = useState(initialMessages)
+  const [selected, setSelected]       = useState<InboxMessage | null>(null)
+  const [filter, setFilter]           = useState<'all' | 'unread' | 'starred'>('all')
+  const [reply, setReply]             = useState('')
+  const [channel, setChannel]         = useState<Channel>('wa')
+  const [contactInfo, setContactInfo] = useState<ContactInfo>(null)
+  const [sending, setSending]         = useState(false)
+  const [sendStatus, setSendStatus]   = useState<SendStatus>(null)
+
+  // Select first message after mount to avoid SSR/hydration mismatch
+  useEffect(() => {
+    if (initialMessages[0]) setSelected(initialMessages[0])
+  }, [])
+
+  useEffect(() => {
+    setSendStatus(null)
+    if (!selected?.from_name) { setContactInfo(null); return }
+    supabase
+      .from('contacts')
+      .select('id, phone, email')
+      .eq('user_id', userId)
+      .eq('name', selected.from_name)
+      .maybeSingle()
+      .then(({ data }) => setContactInfo(data ? { id: data.id, phone: data.phone ?? null, email: data.email ?? null } : null))
+  }, [selected?.id])
 
   const filtered = messages.filter(m => {
     if (filter === 'unread')  return m.unread
@@ -45,7 +70,48 @@ export default function InboxClient({ userId, initialMessages }: Props) {
 
   function selectMessage(msg: InboxMessage) {
     setSelected(msg)
+    setReply('')
+    setSendStatus(null)
     if (msg.unread) markRead(msg.id)
+  }
+
+  async function handleSend() {
+    if (!reply.trim() || !selected || sending) return
+    setSending(true)
+    setSendStatus(null)
+    try {
+      if (channel === 'wa') {
+        if (!contactInfo?.phone) {
+          setSendStatus({ type: 'err', msg: 'Sin número WA para este contacto.' })
+          return
+        }
+        const res  = await fetch('/api/wa/send', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ phone: contactInfo.phone, message: reply, contact_id: contactInfo.id }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Error al enviar')
+      } else {
+        if (!contactInfo?.email) {
+          setSendStatus({ type: 'err', msg: 'Sin email para este contacto.' })
+          return
+        }
+        const res  = await fetch('/api/integrations/gmail/send', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ to: contactInfo.email, subject: `Re: ${selected.subject ?? ''}`, body: reply, contact_id: contactInfo.id }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Error al enviar')
+      }
+      setSendStatus({ type: 'ok', msg: channel === 'wa' ? 'Mensaje enviado por WhatsApp ✓' : 'Email enviado ✓' })
+      setReply('')
+    } catch (e: any) {
+      setSendStatus({ type: 'err', msg: e.message })
+    } finally {
+      setSending(false)
+    }
   }
 
   const unreadCount = messages.filter(m => m.unread).length
@@ -155,24 +221,59 @@ export default function InboxClient({ userId, initialMessages }: Props) {
 
           {/* Reply */}
           <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+            {/* Channel selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <button
+                className={`btn sm ${channel === 'wa' ? 'primary' : 'ghost'}`}
+                onClick={() => { setChannel('wa'); setSendStatus(null) }}
+                style={{ gap: 5 }}
+              >
+                <Icon name="phone" size={12} /> WhatsApp
+              </button>
+              <button
+                className={`btn sm ${channel === 'email' ? 'primary' : 'ghost'}`}
+                onClick={() => { setChannel('email'); setSendStatus(null) }}
+                style={{ gap: 5 }}
+              >
+                <Icon name="mail" size={12} /> Email
+              </button>
+              {contactInfo && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
+                  {channel === 'wa'
+                    ? (contactInfo.phone ? `📱 ${contactInfo.phone}` : '⚠ Sin teléfono')
+                    : (contactInfo.email ? `✉ ${contactInfo.email}` : '⚠ Sin email')
+                  }
+                </span>
+              )}
+            </div>
+
             <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
               <textarea
                 style={{ width: '100%', border: 0, padding: '10px 12px', fontSize: 13, lineHeight: 1.6, background: 'var(--bg-panel)', color: 'var(--text)', resize: 'none', outline: 'none', fontFamily: 'var(--font-sans)' }}
                 rows={3}
-                placeholder={`Responder a ${selected.from_name}…`}
+                placeholder={channel === 'wa' ? `Mensaje WA a ${selected.from_name}…` : `Email a ${selected.from_name}…`}
                 value={reply}
                 onChange={e => setReply(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSend() }}
               />
               <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-sunken)' }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button className="btn ghost sm icon"><Icon name="link" size={13} /></button>
-                  <button className="btn ghost sm icon"><Icon name="sparkles" size={13} /></button>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  {sendStatus && (
+                    <span style={{ fontSize: 11.5, color: sendStatus.type === 'ok' ? 'var(--success)' : 'var(--danger)', marginRight: 4 }}>
+                      {sendStatus.msg}
+                    </span>
+                  )}
                 </div>
-                <button className="btn primary sm" disabled={!reply.trim()}>
-                  <Icon name="send" size={12} /> Enviar
+                <button
+                  className="btn primary sm"
+                  disabled={!reply.trim() || sending}
+                  onClick={handleSend}
+                >
+                  {sending ? '…' : <><Icon name="send" size={12} /> {channel === 'wa' ? 'Enviar WA' : 'Enviar Email'}</>}
                 </button>
               </div>
             </div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 5 }}>Ctrl+Enter para enviar</div>
           </div>
         </div>
       ) : (

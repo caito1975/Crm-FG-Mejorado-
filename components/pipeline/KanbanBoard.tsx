@@ -258,6 +258,16 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
         crumbs={[{ label: 'Pipeline' }]}
         actions={
           <>
+            {!isOwner && (
+              <span style={{
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                textTransform: 'uppercase', padding: '2px 8px',
+                background: 'var(--accent-soft)', color: 'var(--accent)',
+                borderRadius: 6, border: '1px solid var(--accent)',
+              }}>
+                Mis deals
+              </span>
+            )}
             <span style={{ fontSize: 12.5, color: 'var(--text-muted)', marginRight: 4 }}>
               <b style={{ color: 'var(--text)' }}>{deals.filter(d => d.stage_id !== 'perdido').length}</b> deals
               {' · '}
