@@ -10,7 +10,7 @@ function createServiceClient() {
 }
 
 function baseUrl(req: NextRequest) {
-  return `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  return process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`
 }
 
 export async function GET(req: NextRequest) {

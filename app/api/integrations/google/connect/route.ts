@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Provider inválido' }, { status: 400 })
   }
 
-  const base = `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  // Always use the canonical production URL so the redirect_uri matches what's
+  // registered in Google Cloud Console regardless of which Netlify URL the user came from.
+  const base = process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`
   const redirectUri = `${base}/api/integrations/google/callback`
 
   const params = new URLSearchParams({
