@@ -57,55 +57,62 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Google Calendar no conectado' }, { status: 404 })
   }
 
-  let accessToken = integration.access_token
+  let accessToken: string | null = integration.access_token
   if (new Date(integration.token_expiry) <= new Date()) {
     const newToken = await refreshToken(integration)
-    if (!newToken) return NextResponse.json({ error: 'Token expirado' }, { status: 401 })
-    accessToken = newToken
-    await supabase.from('integrations').update({
-      access_token: newToken,
-      token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
-    }).eq('id', integration.id)
+    if (newToken) {
+      accessToken = newToken
+      await supabase.from('integrations').update({
+        access_token: newToken,
+        token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
+      }).eq('id', integration.id)
+    } else {
+      accessToken = null
+    }
   }
 
   const { start, label } = parsed
   const end = new Date(start.getTime() + 60 * 60 * 1000)
 
-  const event = {
-    summary:     `Reunión FG Medios${contact_name ? ` — ${contact_name}` : ''}`,
-    description: [
-      'Reunión agendada vía CRM CarosIA',
-      contact_name  ? `Contacto: ${contact_name}`   : '',
-      contact_phone ? `Teléfono: ${contact_phone}` : '',
-    ].filter(Boolean).join('\n'),
-    start: { dateTime: start.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
-    end:   { dateTime: end.toISOString(),   timeZone: 'America/Argentina/Buenos_Aires' },
-    conferenceData: {
-      createRequest: {
-        requestId: `crm-meet-${Date.now()}`,
-        conferenceSolutionKey: { type: 'hangoutsMeet' },
-      },
-    },
-  }
-
-  const calRes = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
-    {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify(event),
-    }
-  )
-
   let eventId:  string | null = null
   let meetLink: string | null = null
 
-  if (calRes.ok) {
-    const created = await calRes.json()
-    eventId  = created.id ?? null
-    meetLink = created.conferenceData?.entryPoints
-      ?.find((e: any) => e.entryPointType === 'video')?.uri ?? null
+  if (accessToken) {
+    const event = {
+      summary:     `Reunión FG Medios${contact_name ? ` — ${contact_name}` : ''}`,
+      description: [
+        'Reunión agendada vía CRM CarosIA',
+        contact_name  ? `Contacto: ${contact_name}`   : '',
+        contact_phone ? `Teléfono: ${contact_phone}` : '',
+      ].filter(Boolean).join('\n'),
+      start: { dateTime: start.toISOString(), timeZone: 'America/Argentina/Buenos_Aires' },
+      end:   { dateTime: end.toISOString(),   timeZone: 'America/Argentina/Buenos_Aires' },
+      conferenceData: {
+        createRequest: {
+          requestId: `crm-meet-${Date.now()}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      },
+    }
+
+    const calRes = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+      {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify(event),
+      }
+    )
+
+    if (calRes.ok) {
+      const created = await calRes.json()
+      eventId  = created.id ?? null
+      meetLink = created.conferenceData?.entryPoints
+        ?.find((e: any) => e.entryPointType === 'video')?.uri ?? null
+    }
+    // If Calendar API fails, continue — confirmation is sent without meet link
   }
+  // If token unavailable, confirm booking without creating calendar event
 
   if (contact_id) {
     await supabase.from('activities').insert({
