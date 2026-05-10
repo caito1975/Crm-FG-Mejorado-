@@ -38,6 +38,7 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
   const [invitePerm, setInvitePerm] = useState<'vendedor' | 'sdr' | 'manager' | 'viewer'>('vendedor')
   const [invitePassword, setInvitePassword] = useState('')
   const [saving, setSaving] = useState(false)
+  const [inviteError, setInviteError] = useState('')
   const [pwMember, setPwMember] = useState<TeamMember | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
@@ -46,6 +47,7 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
   async function addMember() {
     if (!inviteName.trim()) return
     setSaving(true)
+    setInviteError('')
 
     const { data, error } = await supabase.from('team_members').insert({
       owner_id: userId,
@@ -59,9 +61,15 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
       quota: 0, sold: 0, deals_count: 0, win_rate: 0,
     }).select().single()
 
-    // If email + password provided, create auth user directly (no invite email)
-    if (!error && data && inviteEmail.trim() && invitePassword.trim()) {
-      await fetch('/api/team/create-user', {
+    if (error || !data) {
+      setSaving(false)
+      setInviteError(error?.message || 'Error al crear el miembro')
+      return
+    }
+
+    // If email + password provided, create auth user
+    if (inviteEmail.trim() && invitePassword.trim()) {
+      const res = await fetch('/api/team/create-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,18 +78,25 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
           member_id: data.id,
         }),
       })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        // Rollback the team_members insert so we don't leave orphan records
+        await supabase.from('team_members').delete().eq('id', data.id)
+        setSaving(false)
+        setInviteError(json.error || 'No se pudo crear la cuenta de acceso. Intentá de nuevo.')
+        return
+      }
     }
 
     setSaving(false)
-    if (!error && data) {
-      setMembers(m => [...m, data as TeamMember])
-      setShowInvite(false)
-      setInviteName('')
-      setInviteEmail('')
-      setInvitePhone('')
-      setInviteRole('')
-      setInvitePassword('')
-    }
+    setMembers(m => [...m, data as TeamMember])
+    setShowInvite(false)
+    setInviteName('')
+    setInviteEmail('')
+    setInvitePhone('')
+    setInviteRole('')
+    setInvitePassword('')
+    setInviteError('')
   }
 
   async function changePassword() {
@@ -385,9 +400,12 @@ export default function TeamAdminClient({ members: init, deals, userId, isOwner 
                   El vendedor puede cambiarla después desde su perfil.
                 </span>
               </div>
+              {inviteError && (
+                <p style={{ color: 'var(--danger)', fontSize: 12.5, marginTop: 4 }}>{inviteError}</p>
+              )}
             </div>
             <div className="modal-foot">
-              <button className="btn ghost" onClick={() => setShowInvite(false)}>Cancelar</button>
+              <button className="btn ghost" onClick={() => { setShowInvite(false); setInviteError('') }}>Cancelar</button>
               <button className="btn primary" onClick={addMember} disabled={!inviteName.trim() || saving}>
                 {saving ? 'Guardando…' : 'Agregar miembro'}
               </button>

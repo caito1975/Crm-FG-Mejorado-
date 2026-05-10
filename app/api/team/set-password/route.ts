@@ -40,7 +40,19 @@ export async function POST(req: NextRequest) {
   }
 
   if (!authUserId) {
-    return NextResponse.json({ error: 'El vendedor todavía no activó su cuenta' }, { status: 400 })
+    // Auth user doesn't exist yet — create it now
+    if (!member.email) {
+      return NextResponse.json({ error: 'El miembro no tiene email asignado' }, { status: 400 })
+    }
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email: member.email,
+      password,
+      email_confirm: true,
+    })
+    if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 })
+    authUserId = created.user.id
+    await admin.from('team_members').update({ member_user_id: authUserId, status: 'activo' }).eq('id', member_id)
+    return NextResponse.json({ ok: true, created: true })
   }
 
   const { error } = await admin.auth.admin.updateUserById(authUserId, { password })

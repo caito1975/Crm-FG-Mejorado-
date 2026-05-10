@@ -24,9 +24,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Provider inválido' }, { status: 400 })
   }
 
-  const base = process.env.NEXT_PUBLIC_APP_URL || `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  const base = `${req.nextUrl.protocol}//${req.nextUrl.host}`
   const redirectUri = `${base}/api/integrations/google/callback`
-  console.log('🔑 redirect_uri enviado a Google:', redirectUri)
 
   const params = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID!,

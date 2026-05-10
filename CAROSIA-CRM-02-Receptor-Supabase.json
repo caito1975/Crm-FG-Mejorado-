@@ -4,11 +4,18 @@
     {
       "parameters": {
         "content": "## CRM-02: RECEPTOR DE RESPUESTAS WhatsApp\n\n**SI →** Propuesta PDF + pregunta reunión\n**NO →** Estado archivado\n**AGENDAR →** Slots de calendario disponibles\n**SLOT_XXXX →** Reserva reunión Google Calendar + confirmación\n**NO_REUNION →** Registra actividad\n**Otro (sin vendedor) →** Round-robin vendedor\n**Otro (con vendedor) →** Solo actividad + inbox\n\n⚠️ Reemplazar https://crm-fg-mejorado.netlify.app con la URL del CRM desplegado",
-        "height": 380, "width": 560, "color": 4
+        "height": 380,
+        "width": 560,
+        "color": 4
       },
-      "id": "c02s-sticky", "name": "Header",
-      "type": "n8n-nodes-base.stickyNote", "typeVersion": 1,
-      "position": [-208, -260]
+      "id": "c02s-sticky",
+      "name": "Header",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        -260
+      ]
     },
     {
       "parameters": {
@@ -16,31 +23,62 @@
         "path": "whatsapp-receptor-crm",
         "options": {}
       },
-      "id": "c02s-webhook", "name": "Webhook - Mensaje Entrante",
-      "type": "n8n-nodes-base.webhook", "typeVersion": 2,
-      "position": [400, 304],
+      "id": "c02s-webhook",
+      "name": "Webhook - Mensaje Entrante",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        400,
+        304
+      ],
       "webhookId": "b5e8f1a2-receptor-wa-supabase-v1"
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.item.json;\nconst payload = (raw && raw.body && typeof raw.body === 'object') ? raw.body : raw;\n\nconst debugInfo = {\n  has_event: !!payload.event,\n  event_value: payload.event || 'NINGUNO',\n  has_data: !!payload.data,\n  data_type: typeof payload.data,\n  payload_keys: Object.keys(payload || {}).slice(0, 10).join(',')\n};\n\nconst event = payload.event || payload.type || '';\n\nif (event && event !== 'messages.upsert') {\n  return [{ json: { skip: true, skip_reason: 'wrong_event:' + event, ...debugInfo } }];\n}\n\nlet dataSource = payload.data || payload;\n\nif (typeof dataSource === 'string') {\n  try {\n    dataSource = JSON.parse(Buffer.from(dataSource, 'base64').toString('utf8'));\n  } catch(e1) {\n    try { dataSource = JSON.parse(dataSource); }\n    catch(e2) {\n      return [{ json: { skip: true, skip_reason: 'data_no_parseable', ...debugInfo } }];\n    }\n  }\n}\n\nlet msgData = null;\nif (dataSource && dataSource.key) {\n  msgData = dataSource;\n} else if (dataSource && Array.isArray(dataSource.messages) && dataSource.messages.length > 0) {\n  msgData = dataSource.messages[0];\n} else if (Array.isArray(dataSource) && dataSource.length > 0) {\n  msgData = dataSource[0];\n} else if (dataSource && typeof dataSource === 'object') {\n  msgData = dataSource;\n}\n\nif (!msgData) {\n  return [{ json: { skip: true, skip_reason: 'no_msg_data', ...debugInfo } }];\n}\n\nconst key = msgData.key || {};\nconst remoteJid = key.remoteJid || msgData.remoteJid || '';\nconst fromMe = key.fromMe === true || msgData.fromMe === true;\nconst isGroup = remoteJid.includes('@g.us');\n\nif (fromMe)     return [{ json: { skip: true, skip_reason: 'from_me', remoteJid, ...debugInfo } }];\nif (isGroup)    return [{ json: { skip: true, skip_reason: 'is_group', remoteJid, ...debugInfo } }];\nif (!remoteJid) return [{ json: { skip: true, skip_reason: 'no_remote_jid', ...debugInfo } }];\n\nconst message = msgData.message || {};\n\n// Botón clásico\nconst buttonId   = (message.buttonsResponseMessage && message.buttonsResponseMessage.selectedButtonId)   || null;\nconst buttonText = (message.buttonsResponseMessage && message.buttonsResponseMessage.selectedDisplayText) || null;\n\n// Respuesta de lista (sendList)\nconst listRowId  = (message.listResponseMessage && message.listResponseMessage.singleSelectReply && message.listResponseMessage.singleSelectReply.selectedRowId) || null;\nconst listTitle  = (message.listResponseMessage && message.listResponseMessage.title) || null;\n\n// ID unificado: botón o lista\nconst selectedId = buttonId || listRowId || null;\n\nconst texto = message.conversation\n  || (message.extendedTextMessage && message.extendedTextMessage.text)\n  || buttonText\n  || listTitle\n  || (message.imageMessage && message.imageMessage.caption)\n  || (message.videoMessage && message.videoMessage.caption)\n  || (message.audioMessage ? '[audio]' : null)\n  || (message.documentMessage ? '[documento]' : null)\n  || (message.stickerMessage ? '[sticker]' : null)\n  || '[media]';\n\nconst pushName = msgData.pushName || '';\nconst numero = remoteJid.replace('@s.whatsapp.net', '').replace(/^[+]/, '');\n\nif (!numero) return [{ json: { skip: true, skip_reason: 'no_numero', ...debugInfo } }];\n\nconst esSI = /^\\s*s[i\\xED]+!?\\s*$/i.test(texto.trim()) || selectedId === 'btn_si';\nconst esNO = /^\\s*no\\s*$/i.test(texto.trim()) || selectedId === 'btn_no';\nconst esAgendar = /^\\s*agendar\\s*$/i.test(texto.trim());\nconst esSlot = /^SLOT_\\d{4}-\\d{2}-\\d{2}_\\d{2}:\\d{2}$/.test(texto.trim());\nconst esNoReunion = /^\\s*no_reunion\\s*$/i.test(texto.trim());\nconst slotKey = esSlot ? texto.trim() : null;\n\nreturn [{ json: {\n  skip: false,\n  numero,\n  texto,\n  es_si: esSI,\n  es_no: esNO,\n  es_agendar: esAgendar,\n  es_slot: esSlot,\n  es_no_reunion: esNoReunion,\n  slot_key: slotKey,\n  button_id: selectedId,\n  nombre_remitente: pushName,\n  fecha_respuesta: new Date().toISOString(),\n  _debug_event: event || 'sin_evento',\n  ...debugInfo\n} }];"
+        "jsCode": "const raw = $input.item.json;\nconst payload = (raw && raw.body && typeof raw.body === 'object') ? raw.body : raw;\n\nconst debugInfo = {\n  has_event: !!payload.event,\n  event_value: payload.event || 'NINGUNO',\n  has_data: !!payload.data,\n  data_type: typeof payload.data,\n  payload_keys: Object.keys(payload || {}).slice(0, 10).join(',')\n};\n\nconst event = payload.event || payload.type || '';\n\n// Accept messages.upsert AND messages.update that contain actual message content\n// (some Evolution API versions send new messages as messages.update)\nconst isStatusOnly = event === 'messages.update' &&\n  payload.data && !Array.isArray(payload.data) &&\n  payload.data.update && !payload.data.message && !payload.data.key;\n\nif (isStatusOnly) {\n  return [{ json: { skip: true, skip_reason: 'status_update:' + event, ...debugInfo } }];\n}\n\nif (event && event !== 'messages.upsert' && event !== 'messages.update') {\n  return [{ json: { skip: true, skip_reason: 'wrong_event:' + event, ...debugInfo } }];\n}\n\nlet dataSource = payload.data || payload;\n\nif (typeof dataSource === 'string') {\n  try {\n    dataSource = JSON.parse(Buffer.from(dataSource, 'base64').toString('utf8'));\n  } catch(e1) {\n    try { dataSource = JSON.parse(dataSource); }\n    catch(e2) {\n      return [{ json: { skip: true, skip_reason: 'data_no_parseable', ...debugInfo } }];\n    }\n  }\n}\n\nlet msgData = null;\nif (dataSource && dataSource.key) {\n  msgData = dataSource;\n} else if (dataSource && Array.isArray(dataSource.messages) && dataSource.messages.length > 0) {\n  msgData = dataSource.messages[0];\n} else if (Array.isArray(dataSource) && dataSource.length > 0) {\n  msgData = dataSource[0];\n} else if (dataSource && typeof dataSource === 'object') {\n  msgData = dataSource;\n}\n\nif (!msgData) {\n  return [{ json: { skip: true, skip_reason: 'no_msg_data', ...debugInfo } }];\n}\n\nconst key = msgData.key || {};\nconst remoteJid = key.remoteJid || msgData.remoteJid || '';\nconst fromMe = key.fromMe === true || msgData.fromMe === true;\nconst isGroup = remoteJid.includes('@g.us');\n\nif (fromMe)     return [{ json: { skip: true, skip_reason: 'from_me', remoteJid, ...debugInfo } }];\nif (isGroup)    return [{ json: { skip: true, skip_reason: 'is_group', remoteJid, ...debugInfo } }];\nif (!remoteJid) return [{ json: { skip: true, skip_reason: 'no_remote_jid', ...debugInfo } }];\n\nconst message = msgData.message || {};\n\n// Botón clásico\nconst buttonId   = (message.buttonsResponseMessage && message.buttonsResponseMessage.selectedButtonId)   || null;\nconst buttonText = (message.buttonsResponseMessage && message.buttonsResponseMessage.selectedDisplayText) || null;\n\n// Respuesta de lista (sendList)\nconst listRowId  = (message.listResponseMessage && message.listResponseMessage.singleSelectReply && message.listResponseMessage.singleSelectReply.selectedRowId) || null;\nconst listTitle  = (message.listResponseMessage && message.listResponseMessage.title) || null;\n\n// ID unificado: botón o lista\nconst selectedId = buttonId || listRowId || null;\n\nconst texto = message.conversation\n  || (message.extendedTextMessage && message.extendedTextMessage.text)\n  || buttonText\n  || listTitle\n  || (message.imageMessage && message.imageMessage.caption)\n  || (message.videoMessage && message.videoMessage.caption)\n  || (message.audioMessage ? '[audio]' : null)\n  || (message.documentMessage ? '[documento]' : null)\n  || (message.stickerMessage ? '[sticker]' : null)\n  || '[media]';\n\nconst pushName = msgData.pushName || '';\nconst numero = remoteJid.replace('@s.whatsapp.net', '').replace(/^[+]/, '');\n\nif (!numero) return [{ json: { skip: true, skip_reason: 'no_numero', ...debugInfo } }];\n\nconst esSI = /^\\s*s[i\\xED]+!?\\s*$/i.test(texto.trim()) || selectedId === 'btn_si';\nconst esNO = /^\\s*no\\s*$/i.test(texto.trim()) || selectedId === 'btn_no';\nconst esAgendar = /^\\s*agendar\\s*$/i.test(texto.trim());\nconst esSlot = /^SLOT_\\d{4}-\\d{2}-\\d{2}_\\d{2}:\\d{2}$/.test(texto.trim());\nconst esNoReunion = /^\\s*no_reunion\\s*$/i.test(texto.trim());\nconst slotKey = esSlot ? texto.trim() : null;\n\nreturn [{ json: {\n  skip: false,\n  numero,\n  texto,\n  es_si: esSI,\n  es_no: esNO,\n  es_agendar: esAgendar,\n  es_slot: esSlot,\n  es_no_reunion: esNoReunion,\n  slot_key: slotKey,\n  button_id: selectedId,\n  nombre_remitente: pushName,\n  fecha_respuesta: new Date().toISOString(),\n  _debug_event: event || 'sin_evento',\n  ...debugInfo\n} }];"
       },
-      "id": "c02s-extract", "name": "Extraer y Filtrar Mensaje",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [720, 304]
+      "id": "c02s-extract",
+      "name": "Extraer y Filtrar Mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        304
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-skip", "leftValue": "={{ $json.skip }}", "rightValue": false, "operator": { "type": "boolean", "operation": "false", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-filter-skip", "name": "Es Mensaje Entrante?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [1040, 304]
+      "id": "c02s-filter-skip",
+      "name": "Es Mensaje Entrante?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        304
+      ]
     },
     {
       "parameters": {
@@ -48,57 +86,129 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" }
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            }
+          ]
+        },
         "sendQuery": true,
-        "queryParameters": { "parameters": [
-          { "name": "select", "value": "id,name,phone,status,user_id,owner_name,rubro,assigned_to" },
-          { "name": "phone",  "value": "={{ 'ilike.*' + $json.numero.slice(-10) + '*' }}" },
-          { "name": "limit",  "value": "1" }
-        ]},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,phone,status,user_id,owner_name,rubro,assigned_to"
+            },
+            {
+              "name": "phone",
+              "value": "={{ 'ilike.*' + $json.numero.slice(-10) + '*' }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "c02s-search", "name": "Buscar Contacto Supabase",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [1360, 304],
-      "continueOnFail": true, "alwaysOutputData": true
+      "id": "c02s-search",
+      "name": "Buscar Contacto Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        304
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all();\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nif (items.length === 0 || !items[0].json.id) {\n  return [{ json: { found: false, numero: ex.numero, nombre_remitente: ex.nombre_remitente, texto: ex.texto, es_si: ex.es_si, es_no: ex.es_no, es_agendar: ex.es_agendar || false, es_slot: ex.es_slot || false, es_no_reunion: ex.es_no_reunion || false, slot_key: ex.slot_key || null, button_id: ex.button_id || null, fecha_respuesta: ex.fecha_respuesta } }];\n}\n\nconst c = items[0].json;\nreturn [{ json: {\n  found: true,\n  contact_id: c.id,\n  name: c.name,\n  phone: c.phone,\n  status: c.status,\n  user_id: c.user_id,\n  owner_name: c.owner_name || '',\n  assigned_to: c.assigned_to || null,\n  rubro: c.rubro || '',\n  numero: ex.numero,\n  texto: ex.texto,\n  es_si: ex.es_si,\n  es_no: ex.es_no,\n  es_agendar: ex.es_agendar || false,\n  es_slot: ex.es_slot || false,\n  es_no_reunion: ex.es_no_reunion || false,\n  slot_key: ex.slot_key || null,\n  button_id: ex.button_id || null,\n  nombre_remitente: ex.nombre_remitente,\n  fecha_respuesta: ex.fecha_respuesta\n} }];"
+        "jsCode": "const items = $input.all();\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nif (items.length === 0 || !items[0].json.id) {\n  return [{ json: { found: false, numero: ex.numero, nombre_remitente: ex.nombre_remitente, texto: ex.texto, es_si: ex.es_si, es_no: ex.es_no, es_agendar: ex.es_agendar || false, es_slot: ex.es_slot || false, es_no_reunion: ex.es_no_reunion || false, slot_key: ex.slot_key || null, button_id: ex.button_id || null, fecha_respuesta: ex.fecha_respuesta } }];\n}\n\nconst c = items[0].json;\nreturn [{ json: {\n  found: true,\n  contact_id: c.id,\n  name: c.name,\n  phone: c.phone,\n  status: c.status,\n  user_id: c.user_id,\n  owner_name: c.owner_name || '',\n  assigned_to: c.assigned_to || null,\n  rubro: c.rubro || '',\n  numero: ex.numero,\n  texto: ex.texto,\n  es_si: ex.es_si,\n  es_no: ex.es_no,\n  es_agendar: ex.es_agendar || false,\n  es_slot: ex.es_slot || false,\n  es_no_reunion: ex.es_no_reunion || false,\n  slot_key: ex.slot_key || null,\n  slot_numero: ex.slot_numero || null,\n  button_id: ex.button_id || null,\n  nombre_remitente: ex.nombre_remitente,\n  fecha_respuesta: ex.fecha_respuesta\n} }];"
       },
-      "id": "c02s-verify", "name": "Verificar Contacto",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [1680, 304]
+      "id": "c02s-verify",
+      "name": "Verificar Contacto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        304
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-found", "leftValue": "={{ $json.found }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-found",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-found", "name": "Lead Encontrado?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2000, 304]
+      "id": "c02s-if-found",
+      "name": "Lead Encontrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        304
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-no", "leftValue": "={{ $json.es_no }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-no",
+              "leftValue": "={{ $json.es_no }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-no", "name": "Respondio NO?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2320, 100]
+      "id": "c02s-if-no",
+      "name": "Respondio NO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        100
+      ]
     },
     {
       "parameters": {
@@ -106,19 +216,39 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ status: 'archivado', last_touch: $json.fecha_respuesta }) }}",
         "options": {}
       },
-      "id": "c02s-marcar-no", "name": "Marcar No Interesado",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [2640, 100],
+      "id": "c02s-marcar-no",
+      "name": "Marcar No Interesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        100
+      ],
       "continueOnFail": true
     },
     {
@@ -127,19 +257,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Verificar Contacto').first().json.user_id, kind: 'note', who: $('Verificar Contacto').first().json.name, body: 'Lead declin\\xF3 el outreach (eligi\\xF3 NO)', contact_id: $('Verificar Contacto').first().json.contact_id }) }}",
         "options": {}
       },
-      "id": "c02s-actividad-no", "name": "Actividad NO",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [2960, 100],
+      "id": "c02s-actividad-no",
+      "name": "Actividad NO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        100
+      ],
       "continueOnFail": true
     },
     {
@@ -148,42 +298,88 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ status: 'interesado', last_touch: $json.fecha_respuesta }) }}",
         "options": {}
       },
-      "id": "c02s-update-status", "name": "Actualizar Status Interesado",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [2320, 304],
+      "id": "c02s-update-status",
+      "name": "Actualizar Status Interesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        304
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-si", "leftValue": "={{ $('Verificar Contacto').first().json.es_si }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-si",
+              "leftValue": "={{ $('Verificar Contacto').first().json.es_si }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-si", "name": "Respondio SI?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2640, 304]
+      "id": "c02s-if-si",
+      "name": "Respondio SI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        304
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst ownerName = 'Carlos Perilli';\nconst ownerUserId = contact.user_id;\n\nconst propText = '\\u00A1Genial ' + contact.name + '! \\u{1F44B}\\n'\n  + 'Te adjunto nuestra propuesta para que la puedas ver con calma \\u{1F446}\\n\\n'\n  + 'En resumen, lo que hacemos es ayudarte a que *cada peso que invert\\xEDs en publicidad rinda m\\xE1s*, '\n  + 'evitando los impuestos que hoy probablemente est\\xE1s pagando sin darte cuenta.\\n\\n'\n  + 'Cuando la revises, agendamos 15 minutos y te lo explicamos en vivo \\u2014 sin compromiso.\\n\\n'\n  + '\\xBFQu\\xE9 d\\xEDa te queda bien esta semana? \\u{1F4C5}';\n\nconst inboxBody = 'Lead respondi\\xF3 S\\xCD \\u2014 propuesta enviada autom\\xE1ticamente\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Tel\\xE9fono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje: \"' + ex.texto + '\"';\n\nreturn [{ json: {\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: ownerUserId,\n  owner_name: ownerName,\n  numero: ex.numero,\n  fecha_respuesta: ex.fecha_respuesta,\n  prop_text: propText,\n  pdf_url: 'https://drive.google.com/uc?export=download&id=1OKqpjbrUV0sx9tg0r2UJOrZnQCmAxWnY',\n  inbox_body: inboxBody,\n  inbox_subject: 'S\\xCD de ' + contact.name + (contact.rubro ? ' \\xB7 ' + contact.rubro : ''),\n  inbox_preview: 'Respondi\\xF3 S\\xCD \\u2014 propuesta enviada autom\\xE1ticamente'\n} }];"
+        "jsCode": "const contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst ownerName = 'Carlos Perilli';\nconst ownerUserId = contact.user_id;\n\nvar n = String.fromCharCode(10);\nconst propText = '¡Genial ' + contact.name + '! 👋' + n\n  + 'Te adjunto nuestra propuesta para que la puedas ver con calma 👆' + n + n\n  + 'En resumen, lo que hacemos es ayudarte a que cada peso que invertís en publicidad rinda más, '\n  + 'evitando los impuestos que hoy probablemente estás pagando sin darte cuenta. '\n  + '¿Te gustaría agendar una charla de 15-30 minutos para verla juntos? Sin compromiso.' + n + n\n  + '✅ Respondé *AGENDAR* para elegir un horario' + n + n\n  + '❌ Respondé *NO* si preferís no agendar';\n\nconst inboxBody = 'Lead respondi\\xF3 S\\xCD \\u2014 propuesta enviada autom\\xE1ticamente\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Tel\\xE9fono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje: \"' + ex.texto + '\"';\n\nreturn [{ json: {\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: ownerUserId,\n  owner_name: ownerName,\n  numero: ex.numero,\n  fecha_respuesta: ex.fecha_respuesta,\n  prop_text: propText,\n  pdf_url: 'https://drive.google.com/uc?export=download&id=1OKqpjbrUV0sx9tg0r2UJOrZnQCmAxWnY',\n  inbox_body: inboxBody,\n  inbox_subject: 'S\\xCD de ' + contact.name + (contact.rubro ? ' \\xB7 ' + contact.rubro : ''),\n  inbox_preview: 'Respondi\\xF3 S\\xCD \\u2014 propuesta enviada autom\\xE1ticamente'\n} }];"
       },
-      "id": "c02s-asignar-owner", "name": "Asignar al Owner",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [2960, 304]
+      "id": "c02s-asignar-owner",
+      "name": "Asignar al Owner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        304
+      ]
     },
     {
       "parameters": {
@@ -191,19 +387,39 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ owner_name: $json.owner_name, assigned_to: $json.user_id }) }}",
         "options": {}
       },
-      "id": "c02s-update-owner-si", "name": "Actualizar Owner SI",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3280, 304],
+      "id": "c02s-update-owner-si",
+      "name": "Actualizar Owner SI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3280,
+        304
+      ],
       "continueOnFail": true
     },
     {
@@ -212,19 +428,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ contact_id: $('Asignar al Owner').first().json.contact_id, user_id: $('Asignar al Owner').first().json.user_id, title: $('Asignar al Owner').first().json.contact_name, stage_id: 'interesado', owner_name: $('Asignar al Owner').first().json.owner_name, assigned_to: $('Asignar al Owner').first().json.user_id, amount: 0 }) }}",
         "options": {}
       },
-      "id": "c02s-crear-deal-owner", "name": "Crear Deal Owner",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3600, 304],
+      "id": "c02s-crear-deal-owner",
+      "name": "Crear Deal Owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        304
+      ],
       "continueOnFail": true
     },
     {
@@ -233,17 +469,31 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendMedia/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: $('Asignar al Owner').first().json.numero, mediatype: 'document', mimetype: 'application/pdf', caption: $('Asignar al Owner').first().json.prop_text, media: $('Asignar al Owner').first().json.pdf_url, fileName: 'Propuesta FG Medios.pdf' }) }}",
         "options": {}
       },
-      "id": "c02s-enviar-propuesta", "name": "Enviar Propuesta Lead",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3920, 304],
+      "id": "c02s-enviar-propuesta",
+      "name": "Enviar Propuesta Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        304
+      ],
       "continueOnFail": true
     },
     {
@@ -252,42 +502,88 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/inbox_messages",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Asignar al Owner').first().json.user_id, from_name: $('Asignar al Owner').first().json.contact_name, subject: $('Asignar al Owner').first().json.inbox_subject, preview: $('Asignar al Owner').first().json.inbox_preview, body: $('Asignar al Owner').first().json.inbox_body, sent_label: 'Ahora', unread: true, starred: false, labels: ['whatsapp', 'interesado', 'propuesta'] }) }}",
         "options": {}
       },
-      "id": "c02s-inbox-owner", "name": "Insertar Inbox Owner",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4240, 304],
+      "id": "c02s-inbox-owner",
+      "name": "Insertar Inbox Owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        304
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-has-vendor", "leftValue": "={{ !!$('Verificar Contacto').first().json.assigned_to }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-has-vendor",
+              "leftValue": "={{ !!$('Verificar Contacto').first().json.assigned_to }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-check-assigned", "name": "Ya Tiene Vendedor Asignado?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2960, 500]
+      "id": "c02s-check-assigned",
+      "name": "Ya Tiene Vendedor Asignado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        500
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst inboxBody = 'Nueva respuesta WhatsApp (vendedor ya asignado)\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Tel\\xE9fono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje:\\n\"' + ex.texto + '\"\\n\\n'\n  + 'Vendedor asignado: ' + (contact.owner_name || 'Sin asignar');\n\nconst waOwnerText = 'RESPUESTA LEAD (ya asignado)\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*N\\xFAmero:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || 'Sin clasificar') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + '*Vendedor actual:* ' + (contact.owner_name || 'Sin asignar');\n\nreturn [{ json: {\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: contact.user_id,\n  owner_name: contact.owner_name || '',\n  assigned_to: contact.assigned_to,\n  fecha_respuesta: ex.fecha_respuesta,\n  inbox_body: inboxBody,\n  inbox_preview: ex.texto.substring(0, 120),\n  inbox_subject: 'Respuesta WA de ' + contact.name + (contact.rubro ? ' \\xB7 ' + contact.rubro : ''),\n  wa_owner_text: waOwnerText\n} }];"
       },
-      "id": "c02s-prep-existing", "name": "Preparar Msg Existente",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [3280, 700]
+      "id": "c02s-prep-existing",
+      "name": "Preparar Msg Existente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        700
+      ]
     },
     {
       "parameters": {
@@ -295,19 +591,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $json.user_id, kind: 'email_in', who: $json.contact_name, body: 'Respondi\\xF3 por WhatsApp: ' + $json.inbox_preview, contact_id: $json.contact_id }) }}",
         "options": {}
       },
-      "id": "c02s-activity-existing", "name": "Actividad Resp Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3600, 700],
+      "id": "c02s-activity-existing",
+      "name": "Actividad Resp Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        700
+      ],
       "continueOnFail": true
     },
     {
@@ -316,19 +632,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/inbox_messages",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Preparar Msg Existente').first().json.user_id, from_name: $('Preparar Msg Existente').first().json.contact_name, subject: $('Preparar Msg Existente').first().json.inbox_subject, preview: $('Preparar Msg Existente').first().json.inbox_preview, body: $('Preparar Msg Existente').first().json.inbox_body, sent_label: 'Ahora', unread: true, starred: false, labels: ['whatsapp', 'interesado'] }) }}",
         "options": {}
       },
-      "id": "c02s-inbox-existing", "name": "Inbox Resp Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3920, 700],
+      "id": "c02s-inbox-existing",
+      "name": "Inbox Resp Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        700
+      ],
       "continueOnFail": true
     },
     {
@@ -337,17 +673,31 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: '5491155072395', text: $('Preparar Msg Existente').first().json.wa_owner_text }) }}",
         "options": {}
       },
-      "id": "c02s-notify-owner-existing", "name": "Notif Owner Resp Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4240, 700],
+      "id": "c02s-notify-owner-existing",
+      "name": "Notif Owner Resp Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        700
+      ],
       "continueOnFail": true
     },
     {
@@ -356,44 +706,95 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/team_members",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" }
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            }
+          ]
+        },
         "sendQuery": true,
-        "queryParameters": { "parameters": [
-          { "name": "select",     "value": "id,name,phone,permission,deals_count,status,member_user_id" },
-          { "name": "status",     "value": "eq.activo" },
-          { "name": "permission", "value": "neq.admin" }
-        ]},
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,phone,permission,deals_count,status,member_user_id"
+            },
+            {
+              "name": "status",
+              "value": "eq.activo"
+            },
+            {
+              "name": "permission",
+              "value": "neq.admin"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "c02s-read-vendors", "name": "Leer Vendedores Supabase",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3280, 500],
-      "continueOnFail": true, "alwaysOutputData": true
+      "id": "c02s-read-vendors",
+      "name": "Leer Vendedores Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3280,
+        500
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const items = $input.all();\nconst contact = $('Verificar Contacto').first().json;\nconst ex = $('Extraer y Filtrar Mensaje').first().json;\n\nconst vendors = items.map(i => i.json).filter(v => v.id && v.permission !== 'admin');\n\nif (vendors.length === 0) {\n  return [{ json: { assigned: false, contact_id: contact.contact_id, user_id: contact.user_id } }];\n}\n\nconst minDeals = Math.min(...vendors.map(v => Number(v.deals_count) || 0));\nconst candidates = vendors.filter(v => (Number(v.deals_count) || 0) === minDeals);\nconst vendor = candidates[Math.floor(Math.random() * candidates.length)];\n\nconst vendorPhone = String(vendor.phone || '').replace(/\\D/g, '');\n\nconst waVendorText = 'Hola ' + vendor.name + '! Te asignaron un nuevo lead que respondio.\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Telefono:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || '-') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + 'Revisa el CRM para gestionar el lead.';\n\nconst waOwnerText = 'LEAD RESPONDIO\\n\\n'\n  + '*Nombre:* ' + contact.name + '\\n'\n  + '*Numero:* ' + ex.numero + '\\n'\n  + '*Rubro:* ' + (contact.rubro || 'Sin clasificar') + '\\n'\n  + '*Mensaje:* \"' + ex.texto + '\"\\n\\n'\n  + '*Vendedor asignado:* ' + vendor.name;\n\nconst inboxBody = 'Respuesta WhatsApp recibida\\n\\n'\n  + 'Nombre: ' + contact.name + '\\n'\n  + 'Telefono: ' + ex.numero + '\\n'\n  + 'Rubro: ' + (contact.rubro || '-') + '\\n\\n'\n  + 'Mensaje del lead:\\n\"' + ex.texto + '\"\\n\\n'\n  + 'Vendedor asignado: ' + vendor.name;\n\nreturn [{ json: {\n  assigned: true,\n  contact_id: contact.contact_id,\n  contact_name: contact.name,\n  contact_rubro: contact.rubro || '',\n  user_id: contact.user_id,\n  vendor_id: vendor.id,\n  vendor_name: vendor.name,\n  vendor_phone: vendorPhone,\n  vendor_member_user_id: vendor.member_user_id || null,\n  vendor_deals_ant: Number(vendor.deals_count) || 0,\n  fecha_respuesta: ex.fecha_respuesta,\n  wa_vendor_text: waVendorText,\n  wa_owner_text: waOwnerText,\n  inbox_body: inboxBody,\n  inbox_preview: ex.texto.substring(0, 120),\n  inbox_subject: 'WhatsApp de ' + contact.name + (contact.rubro ? ' · ' + contact.rubro : '')\n} }];"
       },
-      "id": "c02s-roundrobin", "name": "Asignar Round-Robin",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [3600, 500]
+      "id": "c02s-roundrobin",
+      "name": "Asignar Round-Robin",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        500
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-vendor", "leftValue": "={{ $json.assigned }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-vendor",
+              "leftValue": "={{ $json.assigned }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-vendor", "name": "Hay Vendedor?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [3920, 500]
+      "id": "c02s-if-vendor",
+      "name": "Hay Vendedor?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3920,
+        500
+      ]
     },
     {
       "parameters": {
@@ -401,19 +802,39 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/contacts?id=eq.' + $json.contact_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ owner_name: $json.vendor_name, assigned_to: $json.vendor_member_user_id }) }}",
         "options": {}
       },
-      "id": "c02s-update-owner", "name": "Actualizar Owner Contacto",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4240, 500],
+      "id": "c02s-update-owner",
+      "name": "Actualizar Owner Contacto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -422,19 +843,39 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/team_members?id=eq.' + $('Asignar Round-Robin').first().json.vendor_id }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ deals_count: $('Asignar Round-Robin').first().json.vendor_deals_ant + 1 }) }}",
         "options": {}
       },
-      "id": "c02s-increment-vendor", "name": "Incrementar Deals Vendedor",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4560, 500],
+      "id": "c02s-increment-vendor",
+      "name": "Incrementar Deals Vendedor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -443,42 +884,89 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals?contact_id=eq.' + $('Asignar Round-Robin').first().json.contact_id + '&stage_id=not.in.(ganado,perdido)' }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=representation" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ stage_id: 'interesado', owner_name: $('Asignar Round-Robin').first().json.vendor_name, assigned_to: $('Asignar Round-Robin').first().json.vendor_member_user_id }) }}",
         "options": {}
       },
-      "id": "c02s-patch-deal", "name": "PATCH Deal Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4880, 500],
-      "continueOnFail": true, "alwaysOutputData": true
+      "id": "c02s-patch-deal",
+      "name": "PATCH Deal Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4880,
+        500
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const items = $input.all();\nconst rr = $('Asignar Round-Robin').first().json;\nconst dealExistia = items.length > 0 && items[0].json && items[0].json.id;\nreturn [{ json: {\n  deal_existia: dealExistia,\n  contact_id: rr.contact_id,\n  contact_name: rr.contact_name,\n  contact_rubro: rr.contact_rubro,\n  user_id: rr.user_id,\n  vendor_name: rr.vendor_name,\n  vendor_member_user_id: rr.vendor_member_user_id,\n  vendor_phone: rr.vendor_phone,\n  fecha_respuesta: rr.fecha_respuesta,\n  inbox_body: rr.inbox_body,\n  inbox_preview: rr.inbox_preview,\n  inbox_subject: rr.inbox_subject,\n  wa_vendor_text: rr.wa_vendor_text,\n  wa_owner_text: rr.wa_owner_text\n} }];"
       },
-      "id": "c02s-check-deal", "name": "Deal Fue Actualizado?",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [5100, 500]
+      "id": "c02s-check-deal",
+      "name": "Deal Fue Actualizado?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5100,
+        500
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-deal", "leftValue": "={{ $json.deal_existia }}", "rightValue": false, "operator": { "type": "boolean", "operation": "false", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-deal",
+              "leftValue": "={{ $json.deal_existia }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-no-deal", "name": "No Habia Deal?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [5320, 500]
+      "id": "c02s-if-no-deal",
+      "name": "No Habia Deal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5320,
+        500
+      ]
     },
     {
       "parameters": {
@@ -486,19 +974,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ contact_id: $json.contact_id, user_id: $json.user_id, title: $json.contact_name, stage_id: 'interesado', owner_name: $json.vendor_name, assigned_to: $json.vendor_member_user_id, amount: 0 }) }}",
         "options": {}
       },
-      "id": "c02s-create-deal", "name": "Crear Deal Interesado",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [5540, 400],
+      "id": "c02s-create-deal",
+      "name": "Crear Deal Interesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5540,
+        400
+      ],
       "continueOnFail": true
     },
     {
@@ -507,19 +1015,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, kind: 'email_in', who: $('Asignar Round-Robin').first().json.contact_name, body: 'Respondi\\xF3 por WhatsApp: ' + $('Asignar Round-Robin').first().json.inbox_preview, contact_id: $('Asignar Round-Robin').first().json.contact_id }) }}",
         "options": {}
       },
-      "id": "c02s-activity", "name": "Registrar Actividad",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [5800, 500],
+      "id": "c02s-activity",
+      "name": "Registrar Actividad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5800,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -528,19 +1056,39 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/inbox_messages",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Asignar Round-Robin').first().json.user_id, from_name: $('Asignar Round-Robin').first().json.contact_name, subject: $('Asignar Round-Robin').first().json.inbox_subject, preview: $('Asignar Round-Robin').first().json.inbox_preview, body: $('Asignar Round-Robin').first().json.inbox_body, sent_label: 'Ahora', unread: true, starred: false, labels: ['whatsapp', 'interesado'] }) }}",
         "options": {}
       },
-      "id": "c02s-inbox", "name": "Insertar Inbox CRM",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [6020, 500],
+      "id": "c02s-inbox",
+      "name": "Insertar Inbox CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6020,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -549,17 +1097,31 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: $('Asignar Round-Robin').first().json.vendor_phone, text: $('Asignar Round-Robin').first().json.wa_vendor_text }) }}",
         "options": {}
       },
-      "id": "c02s-notify-vendor", "name": "Notificar Vendedor WA",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [6240, 500],
+      "id": "c02s-notify-vendor",
+      "name": "Notificar Vendedor WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6240,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -568,17 +1130,31 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: '5491155072395', text: $('Asignar Round-Robin').first().json.wa_owner_text }) }}",
         "options": {}
       },
-      "id": "c02s-notify-owner", "name": "Notificar Owner WA",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [6460, 500],
+      "id": "c02s-notify-owner",
+      "name": "Notificar Owner WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6460,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -587,42 +1163,89 @@
         "url": "={{ 'https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals?contact_id=eq.' + $json.contact_id + '&stage_id=not.in.(ganado,perdido)' }}",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=representation" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ stage_id: 'interesado', owner_name: $json.owner_name, assigned_to: $json.assigned_to }) }}",
         "options": {}
       },
-      "id": "c02s-patch-deal-vendor", "name": "PATCH Deal Vendor Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3600, 900],
-      "continueOnFail": true, "alwaysOutputData": true
+      "id": "c02s-patch-deal-vendor",
+      "name": "PATCH Deal Vendor Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        900
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
         "jsCode": "const items = $input.all();\nconst prep = $('Preparar Msg Existente').first().json;\nconst dealExistia = items.length > 0 && items[0].json && items[0].json.id;\nreturn [{ json: {\n  deal_existia: dealExistia,\n  contact_id: prep.contact_id,\n  contact_name: prep.contact_name,\n  user_id: prep.user_id,\n  owner_name: prep.owner_name,\n  assigned_to: prep.assigned_to\n} }];"
       },
-      "id": "c02s-check-deal-vendor", "name": "Check Deal Vendor Existente",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [3920, 900]
+      "id": "c02s-check-deal-vendor",
+      "name": "Check Deal Vendor Existente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3920,
+        900
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-no-deal-vendor", "leftValue": "={{ $json.deal_existia }}", "rightValue": false, "operator": { "type": "boolean", "operation": "false", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-no-deal-vendor",
+              "leftValue": "={{ $json.deal_existia }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-no-deal-vendor", "name": "Sin Deal Vendor?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [4240, 900]
+      "id": "c02s-if-no-deal-vendor",
+      "name": "Sin Deal Vendor?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4240,
+        900
+      ]
     },
     {
       "parameters": {
@@ -630,54 +1253,105 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/deals",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ contact_id: $json.contact_id, user_id: $json.user_id, title: $json.contact_name, stage_id: 'interesado', owner_name: $json.owner_name, assigned_to: $json.assigned_to, amount: 0 }) }}",
         "options": {}
       },
-      "id": "c02s-create-deal-vendor", "name": "Crear Deal Vendor Existente",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4560, 900],
+      "id": "c02s-create-deal-vendor",
+      "name": "Crear Deal Vendor Existente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        900
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-agendar", "leftValue": "={{ $json.es_agendar }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-agendar",
+              "leftValue": "={{ $json.es_agendar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-agendar", "name": "Respondio AGENDAR?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2640, 600]
+      "id": "c02s-if-agendar",
+      "name": "Respondio AGENDAR?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        600
+      ]
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ 'https://https://crm-fg-mejorado.netlify.app/api/integrations/calendar/slots?user_id=' + $('Verificar Contacto').first().json.user_id }}",
+        "url": "={{ 'https://crm-fg-mejorado.netlify.app/api/integrations/calendar/slots?user_id=' + $('Verificar Contacto').first().json.user_id }}",
         "authentication": "none",
         "options": {}
       },
-      "id": "c02s-get-slots", "name": "Obtener Slots Disponibles",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [2960, 760],
+      "id": "c02s-get-slots",
+      "name": "Obtener Slots Disponibles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        760
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const slotsResp = $input.first().json;\nconst contact = $('Verificar Contacto').first().json;\nconst crmNumber = '5491144123687';\nconst numEmojis = ['1\\uFE0F\\u20E3','2\\uFE0F\\u20E3','3\\uFE0F\\u20E3','4\\uFE0F\\u20E3','5\\uFE0F\\u20E3','6\\uFE0F\\u20E3'];\n\nconst slots = (slotsResp && slotsResp.slots) ? slotsResp.slots : [];\n\nif (slots.length === 0) {\n  return [{ json: {\n    numero: contact.numero,\n    mensaje: 'Por el momento no tenemos horarios disponibles. En cuanto se libere agenda te avisamos. \\u00A1Gracias por tu inter\\xE9s! \\uD83D\\uDE4F'\n  }}];\n}\n\nlet msg = '\\uD83D\\uDCC5 Estos son los pr\\xF3ximos horarios disponibles:\\n\\n';\nslots.slice(0, 6).forEach((slot, i) => {\n  msg += numEmojis[i] + ' ' + slot.label + '\\n';\n  msg += 'https://wa.me/' + crmNumber + '?text=' + encodeURIComponent(slot.key) + '\\n\\n';\n});\nmsg += 'Toc\\xE1 el horario que m\\xE1s te convenga \\uD83D\\uDC46';\n\nreturn [{ json: { numero: contact.numero, mensaje: msg } }];"
+        "jsCode": "const slotsResp = $input.first().json;\nconst contact = $('Verificar Contacto').first().json;\nconst crmNumber = '5491144123687';\nconst numEmojis = ['1⃣','2⃣','3⃣','4⃣','5⃣','6⃣'];\n\n// Detect n8n HTTP errors (object) AND API-level errors (string)\nconst rawError = slotsResp && slotsResp.error !== undefined ? slotsResp.error : null;\nconst apiError = rawError !== null\n  ? (typeof rawError === 'object' ? (rawError.message || JSON.stringify(rawError)) : String(rawError))\n  : null;\n\nconst slots = slotsResp && Array.isArray(slotsResp.slots) ? slotsResp.slots : [];\n\nif (apiError) {\n  return [{ json: { numero: contact.numero, mensaje: 'En un momento te contactamos para coordinar la llamada 📞', _debug: 'API_ERROR: ' + apiError } }];\n}\nif (slots.length === 0) {\n  return [{ json: { numero: contact.numero, mensaje: 'Por el momento no tenemos horarios disponibles. Te avisamos cuando se libere la agenda.', _debug: 'NO_SLOTS' } }];\n}\n\nvar n = String.fromCharCode(10);\nvar msg = '📅 Estos son los horarios disponibles:' + n + n;\nslots.slice(0, 6).forEach(function(slot, i) {\n  msg += numEmojis[i] + ' ' + slot.label + n;\n  msg += 'https://wa.me/' + crmNumber + '?text=' + encodeURIComponent(slot.key) + n + n;\n});\nmsg += 'Tocá el horario que más te convenga 👆';\n\nreturn [{ json: { numero: contact.numero, mensaje: msg } }];"
       },
-      "id": "c02s-format-slots", "name": "Formatear Slots WA",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [3280, 760]
+      "id": "c02s-format-slots",
+      "name": "Formatear Slots WA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        760
+      ]
     },
     {
       "parameters": {
@@ -685,48 +1359,94 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ ({ number: $json.numero, text: $json.mensaje }) }}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ number: $json.numero, options: { linkPreview: false }, text: $json.mensaje }) }}",
         "options": {}
       },
-      "id": "c02s-send-slots", "name": "Enviar Slots WA",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3600, 760],
+      "id": "c02s-send-slots",
+      "name": "Enviar Slots WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        760
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-slot", "leftValue": "={{ $json.es_slot }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-slot",
+              "leftValue": "={{ $json.es_slot }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-slot", "name": "Respondio con SLOT?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [2960, 600]
+      "id": "c02s-if-slot",
+      "name": "Respondio con SLOT?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        600
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://https://crm-fg-mejorado.netlify.app/api/integrations/calendar/book",
+        "url": "https://crm-fg-mejorado.netlify.app/api/integrations/calendar/book",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Verificar Contacto').first().json.user_id, slot_key: $('Verificar Contacto').first().json.slot_key, contact_name: $('Verificar Contacto').first().json.name, contact_phone: $('Verificar Contacto').first().json.phone, contact_id: $('Verificar Contacto').first().json.contact_id }) }}",
         "options": {}
       },
-      "id": "c02s-book-meeting", "name": "Reservar Reunion",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3280, 960],
+      "id": "c02s-book-meeting",
+      "name": "Reservar Reunion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3280,
+        960
+      ],
       "continueOnFail": true
     },
     {
@@ -734,9 +1454,14 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const booking = $input.first().json;\nconst contact = $('Verificar Contacto').first().json;\n\nconst label = booking.slot_label || 'el horario seleccionado';\nconst meetLink = booking.meet_link || null;\n\nconst confirmMsg = '\\u2705 *\\u00A1Reuni\\xF3n confirmada!*\\n\\n'\n  + '\\uD83D\\uDCC5 ' + label + '\\n'\n  + '\\u23F1 Duraci\\xF3n: 30 minutos\\n'\n  + (meetLink ? '\\uD83D\\uDCBB Google Meet: ' + meetLink + '\\n' : '')\n  + '\\n\\u00A1Te esperamos! Si necesit\\xE1s cambiar el horario respond\\xE9 *AGENDAR* y te mandamos nuevas opciones.';\n\nconst ownerMsg = 'REUNI\\xD3N AGENDADA \\uD83D\\uDCC5\\n\\n'\n  + '*Contacto:* ' + contact.name + '\\n'\n  + '*Tel\\xE9fono:* ' + contact.numero + '\\n'\n  + '*Horario:* ' + label + '\\n'\n  + (meetLink ? '*Meet:* ' + meetLink : '');\n\nreturn [{ json: {\n  numero: contact.numero,\n  confirm_msg: confirmMsg,\n  owner_msg: ownerMsg,\n  slot_label: label,\n  contact_id: contact.contact_id,\n  user_id: contact.user_id,\n  contact_name: contact.name\n} }];"
       },
-      "id": "c02s-prep-reunion", "name": "Preparar Confirmacion Reunion",
-      "type": "n8n-nodes-base.code", "typeVersion": 2,
-      "position": [3600, 960]
+      "id": "c02s-prep-reunion",
+      "name": "Preparar Confirmacion Reunion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        960
+      ]
     },
     {
       "parameters": {
@@ -744,17 +1469,31 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: $json.numero, text: $json.confirm_msg }) }}",
         "options": {}
       },
-      "id": "c02s-confirm-lead", "name": "Confirmar Reunion Lead",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3920, 960],
+      "id": "c02s-confirm-lead",
+      "name": "Confirmar Reunion Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3920,
+        960
+      ],
       "continueOnFail": true
     },
     {
@@ -763,31 +1502,66 @@
         "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "429683C4C977415CAAFCCE10F7D57E11"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ number: '5491155072395', text: $('Preparar Confirmacion Reunion').first().json.owner_msg }) }}",
         "options": {}
       },
-      "id": "c02s-notify-owner-reunion", "name": "Notif Owner Reunion",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4240, 960],
+      "id": "c02s-notify-owner-reunion",
+      "name": "Notif Owner Reunion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4240,
+        960
+      ],
       "continueOnFail": true
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 2 },
-          "conditions": [{ "id": "cond-no-reunion", "leftValue": "={{ $json.es_no_reunion }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } }],
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-no-reunion",
+              "leftValue": "={{ $json.es_no_reunion }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "c02s-if-no-reunion", "name": "Respondio NO REUNION?",
-      "type": "n8n-nodes-base.if", "typeVersion": 2.2,
-      "position": [3280, 600]
+      "id": "c02s-if-no-reunion",
+      "name": "Respondio NO REUNION?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3280,
+        600
+      ]
     },
     {
       "parameters": {
@@ -795,146 +1569,584 @@
         "url": "https://resxhwxubboicfpoftjp.supabase.co/rest/v1/activities",
         "authentication": "none",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "apikey",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M" },
-          { "name": "Content-Type",  "value": "application/json" },
-          { "name": "Prefer",        "value": "return=minimal" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlc3hod3h1YmJvaWNmcG9mdGpwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzcwMDE0MSwiZXhwIjoyMDkzMjc2MTQxfQ.TqcIuu0AJLfZ61s7BYvYCrmophh1t6kLtZQDtdR-L7M"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ ({ user_id: $('Verificar Contacto').first().json.user_id, kind: 'note', who: $('Verificar Contacto').first().json.name, body: 'Lead declin\\xF3 agendar reuni\\xF3n (eligi\\xF3 NO_REUNION)', contact_id: $('Verificar Contacto').first().json.contact_id }) }}",
         "options": {}
       },
-      "id": "c02s-activity-no-reunion", "name": "Actividad No Reunion",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [3600, 600],
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://fgmedios-evolution-api.aibo5u.easypanel.host/message/sendText/carosia-crm",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": { "parameters": [
-          { "name": "Content-Type", "value": "application/json" },
-          { "name": "apikey",       "value": "429683C4C977415CAAFCCE10F7D57E11" }
-        ]},
-        "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ ({ number: $('Asignar al Owner').first().json.numero, text: '\\u00A1Excelente ' + $('Asignar al Owner').first().json.contact_name + '! \\uD83C\\uDF89 Ya te enviamos la propuesta.\\n\\n\\u00BFTe gustar\\xEDa agendar una charla de 15-30 minutos para verla juntos? Sin compromiso.\\n\\n\\u2705 *S\\xED, agendemos*\\nhttps://wa.me/5491144123687?text=AGENDAR\\n\\n\\u274C *Ahora no, gracias*\\nhttps://wa.me/5491144123687?text=NO_REUNION' }) }}",
-        "options": {}
-      },
-      "id": "c02s-enviar-pregunta-reunion", "name": "Enviar Pregunta Reunion",
-      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-      "position": [4240, 304],
+      "id": "c02s-activity-no-reunion",
+      "name": "Actividad No Reunion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        600
+      ],
       "continueOnFail": true
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook - Mensaje Entrante":   { "main": [[{ "node": "Extraer y Filtrar Mensaje",    "type": "main", "index": 0 }]] },
-    "Extraer y Filtrar Mensaje":    { "main": [[{ "node": "Es Mensaje Entrante?",          "type": "main", "index": 0 }]] },
-    "Es Mensaje Entrante?":         { "main": [[{ "node": "Buscar Contacto Supabase",      "type": "main", "index": 0 }], []] },
-    "Buscar Contacto Supabase":     { "main": [[{ "node": "Verificar Contacto",            "type": "main", "index": 0 }]] },
-    "Verificar Contacto":           { "main": [[{ "node": "Lead Encontrado?",              "type": "main", "index": 0 }]] },
-    "Lead Encontrado?":             { "main": [[{ "node": "Respondio NO?",                 "type": "main", "index": 0 }], []] },
-    "Respondio NO?": {
-      "main": [
-        [{ "node": "Marcar No Interesado",   "type": "main", "index": 0 }],
-        [{ "node": "Respondio AGENDAR?",     "type": "main", "index": 0 }]
-      ]
-    },
-    "Respondio AGENDAR?": {
-      "main": [
-        [{ "node": "Obtener Slots Disponibles", "type": "main", "index": 0 }],
-        [{ "node": "Respondio con SLOT?",        "type": "main", "index": 0 }]
-      ]
-    },
-    "Obtener Slots Disponibles": { "main": [[{ "node": "Formatear Slots WA",  "type": "main", "index": 0 }]] },
-    "Formatear Slots WA":        { "main": [[{ "node": "Enviar Slots WA",      "type": "main", "index": 0 }]] },
-    "Enviar Slots WA":           { "main": [[]] },
-    "Respondio con SLOT?": {
-      "main": [
-        [{ "node": "Reservar Reunion",      "type": "main", "index": 0 }],
-        [{ "node": "Respondio NO REUNION?", "type": "main", "index": 0 }]
-      ]
-    },
-    "Reservar Reunion":                { "main": [[{ "node": "Preparar Confirmacion Reunion", "type": "main", "index": 0 }]] },
-    "Preparar Confirmacion Reunion":   { "main": [[{ "node": "Confirmar Reunion Lead",        "type": "main", "index": 0 }]] },
-    "Confirmar Reunion Lead":          { "main": [[{ "node": "Notif Owner Reunion",           "type": "main", "index": 0 }]] },
-    "Notif Owner Reunion":             { "main": [[]] },
-    "Respondio NO REUNION?": {
-      "main": [
-        [{ "node": "Actividad No Reunion",        "type": "main", "index": 0 }],
-        [{ "node": "Actualizar Status Interesado", "type": "main", "index": 0 }]
-      ]
-    },
-    "Actividad No Reunion": { "main": [[]] },
-    "Marcar No Interesado":         { "main": [[{ "node": "Actividad NO",                  "type": "main", "index": 0 }]] },
-    "Actividad NO":                 { "main": [[]] },
-    "Actualizar Status Interesado": { "main": [[{ "node": "Respondio SI?",                 "type": "main", "index": 0 }]] },
-    "Respondio SI?": {
-      "main": [
-        [{ "node": "Asignar al Owner",            "type": "main", "index": 0 }],
-        [{ "node": "Ya Tiene Vendedor Asignado?",  "type": "main", "index": 0 }]
-      ]
-    },
-    "Ya Tiene Vendedor Asignado?": {
-      "main": [
-        [{ "node": "Preparar Msg Existente",   "type": "main", "index": 0 }],
-        [{ "node": "Leer Vendedores Supabase", "type": "main", "index": 0 }]
-      ]
-    },
-    "Preparar Msg Existente": { "main": [[
-      { "node": "Actividad Resp Existente",    "type": "main", "index": 0 },
-      { "node": "PATCH Deal Vendor Existente", "type": "main", "index": 0 }
-    ]] },
-    "Actividad Resp Existente":     { "main": [[{ "node": "Inbox Resp Existente",       "type": "main", "index": 0 }]] },
-    "Inbox Resp Existente":         { "main": [[{ "node": "Notif Owner Resp Existente", "type": "main", "index": 0 }]] },
-    "PATCH Deal Vendor Existente":  { "main": [[{ "node": "Check Deal Vendor Existente","type": "main", "index": 0 }]] },
-    "Check Deal Vendor Existente":  { "main": [[{ "node": "Sin Deal Vendor?",           "type": "main", "index": 0 }]] },
-    "Sin Deal Vendor?":             { "main": [[{ "node": "Crear Deal Vendor Existente","type": "main", "index": 0 }], []] },
-    "Crear Deal Vendor Existente":  { "main": [[]] },
-    "Asignar al Owner": { "main": [[
-      { "node": "Actualizar Owner SI",   "type": "main", "index": 0 },
-      { "node": "Crear Deal Owner",      "type": "main", "index": 0 },
-      { "node": "Enviar Propuesta Lead", "type": "main", "index": 0 }
-    ]] },
-    "Actualizar Owner SI":          { "main": [[]] },
-    "Crear Deal Owner":             { "main": [[]] },
-    "Enviar Propuesta Lead":        { "main": [[{ "node": "Enviar Pregunta Reunion",  "type": "main", "index": 0 }]] },
-    "Enviar Pregunta Reunion":      { "main": [[{ "node": "Insertar Inbox Owner",     "type": "main", "index": 0 }]] },
-    "Leer Vendedores Supabase":     { "main": [[{ "node": "Asignar Round-Robin",      "type": "main", "index": 0 }]] },
-    "Asignar Round-Robin":          { "main": [[{ "node": "Hay Vendedor?",            "type": "main", "index": 0 }]] },
-    "Hay Vendedor?": {
+    "Webhook - Mensaje Entrante": {
       "main": [
         [
-          { "node": "Actualizar Owner Contacto", "type": "main", "index": 0 },
-          { "node": "PATCH Deal Existente",       "type": "main", "index": 0 },
-          { "node": "Registrar Actividad",        "type": "main", "index": 0 }
+          {
+            "node": "Extraer y Filtrar Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer y Filtrar Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Es Mensaje Entrante?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Mensaje Entrante?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contacto Supabase",
+            "type": "main",
+            "index": 0
+          }
         ],
         []
       ]
     },
-    "Actualizar Owner Contacto":    { "main": [[{ "node": "Incrementar Deals Vendedor", "type": "main", "index": 0 }]] },
-    "Incrementar Deals Vendedor":   { "main": [[]] },
-    "PATCH Deal Existente":         { "main": [[{ "node": "Deal Fue Actualizado?",    "type": "main", "index": 0 }]] },
-    "Deal Fue Actualizado?":        { "main": [[{ "node": "No Habia Deal?",           "type": "main", "index": 0 }]] },
-    "No Habia Deal?": {
+    "Buscar Contacto Supabase": {
       "main": [
-        [{ "node": "Crear Deal Interesado", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "Verificar Contacto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Contacto": {
+      "main": [
+        [
+          {
+            "node": "Lead Encontrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Encontrado?": {
+      "main": [
+        [
+          {
+            "node": "Respondio NO?",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
-    "Crear Deal Interesado":        { "main": [[]] },
-    "Registrar Actividad":          { "main": [[{ "node": "Insertar Inbox CRM",    "type": "main", "index": 0 }]] },
-    "Insertar Inbox CRM":           { "main": [[{ "node": "Notificar Vendedor WA", "type": "main", "index": 0 }]] },
-    "Notificar Vendedor WA":        { "main": [[{ "node": "Notificar Owner WA",    "type": "main", "index": 0 }]] }
+    "Respondio NO?": {
+      "main": [
+        [
+          {
+            "node": "Marcar No Interesado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respondio AGENDAR?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respondio AGENDAR?": {
+      "main": [
+        [
+          {
+            "node": "Obtener Slots Disponibles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respondio con SLOT?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Slots Disponibles": {
+      "main": [
+        [
+          {
+            "node": "Formatear Slots WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Slots WA": {
+      "main": [
+        [
+          {
+            "node": "Enviar Slots WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Slots WA": {
+      "main": [
+        []
+      ]
+    },
+    "Respondio con SLOT?": {
+      "main": [
+        [
+          {
+            "node": "Reservar Reunion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respondio NO REUNION?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar Reunion": {
+      "main": [
+        [
+          {
+            "node": "Preparar Confirmacion Reunion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Confirmacion Reunion": {
+      "main": [
+        [
+          {
+            "node": "Confirmar Reunion Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar Reunion Lead": {
+      "main": [
+        [
+          {
+            "node": "Notif Owner Reunion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notif Owner Reunion": {
+      "main": [
+        []
+      ]
+    },
+    "Respondio NO REUNION?": {
+      "main": [
+        [
+          {
+            "node": "Actividad No Reunion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Actualizar Status Interesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actividad No Reunion": {
+      "main": [
+        []
+      ]
+    },
+    "Marcar No Interesado": {
+      "main": [
+        [
+          {
+            "node": "Actividad NO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actividad NO": {
+      "main": [
+        []
+      ]
+    },
+    "Actualizar Status Interesado": {
+      "main": [
+        [
+          {
+            "node": "Respondio SI?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respondio SI?": {
+      "main": [
+        [
+          {
+            "node": "Asignar al Owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ya Tiene Vendedor Asignado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ya Tiene Vendedor Asignado?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Msg Existente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Leer Vendedores Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Msg Existente": {
+      "main": [
+        [
+          {
+            "node": "Actividad Resp Existente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PATCH Deal Vendor Existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actividad Resp Existente": {
+      "main": [
+        [
+          {
+            "node": "Inbox Resp Existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbox Resp Existente": {
+      "main": [
+        [
+          {
+            "node": "Notif Owner Resp Existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH Deal Vendor Existente": {
+      "main": [
+        [
+          {
+            "node": "Check Deal Vendor Existente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Deal Vendor Existente": {
+      "main": [
+        [
+          {
+            "node": "Sin Deal Vendor?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sin Deal Vendor?": {
+      "main": [
+        [
+          {
+            "node": "Crear Deal Vendor Existente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Crear Deal Vendor Existente": {
+      "main": [
+        []
+      ]
+    },
+    "Asignar al Owner": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Owner SI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crear Deal Owner",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Propuesta Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Owner SI": {
+      "main": [
+        []
+      ]
+    },
+    "Crear Deal Owner": {
+      "main": [
+        []
+      ]
+    },
+    "Enviar Propuesta Lead": {
+      "main": [
+        [
+          {
+            "node": "Insertar Inbox Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Vendedores Supabase": {
+      "main": [
+        [
+          {
+            "node": "Asignar Round-Robin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asignar Round-Robin": {
+      "main": [
+        [
+          {
+            "node": "Hay Vendedor?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay Vendedor?": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Owner Contacto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "PATCH Deal Existente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar Actividad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Actualizar Owner Contacto": {
+      "main": [
+        [
+          {
+            "node": "Incrementar Deals Vendedor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incrementar Deals Vendedor": {
+      "main": [
+        []
+      ]
+    },
+    "PATCH Deal Existente": {
+      "main": [
+        [
+          {
+            "node": "Deal Fue Actualizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Fue Actualizado?": {
+      "main": [
+        [
+          {
+            "node": "No Habia Deal?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Habia Deal?": {
+      "main": [
+        [
+          {
+            "node": "Crear Deal Interesado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Crear Deal Interesado": {
+      "main": [
+        []
+      ]
+    },
+    "Registrar Actividad": {
+      "main": [
+        [
+          {
+            "node": "Insertar Inbox CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar Inbox CRM": {
+      "main": [
+        [
+          {
+            "node": "Notificar Vendedor WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Vendedor WA": {
+      "main": [
+        [
+          {
+            "node": "Notificar Owner WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1", "callerPolicy": "workflowsFromSameOwner", "availableInMCP": false },
-  "versionId": "crm-02-receptor-supabase-v8",
-  "meta": { "instanceId": "cperilli-app-n8n-cloud" },
-  "id": "crm-02-receptor-supabase-v1",
-  "tags": ["CRM", "WhatsApp", "Receptor", "Supabase"]
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "crm-02-receptor-supabase-v13",
+  "meta": {
+    "instanceId": "cperilli-app-n8n-cloud"
+  },
+  "id": "WzkKWMUjE55MhCTq",
+  "tags": [
+    "CRM",
+    "WhatsApp",
+    "Receptor",
+    "Supabase"
+  ]
 }

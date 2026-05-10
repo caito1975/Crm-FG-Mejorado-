@@ -9,19 +9,24 @@ function createServiceClient() {
   )
 }
 
-async function refreshToken(integration: any): Promise<string | null> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id:     process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: integration.refresh_token,
-      grant_type:    'refresh_token',
-    }),
-  })
-  const data = await res.json()
-  return data.access_token ?? null
+async function refreshToken(integration: any): Promise<{ token: string | null; error?: string }> {
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: integration.refresh_token,
+        grant_type:    'refresh_token',
+      }),
+    })
+    const data = await res.json()
+    if (data.error) return { token: null, error: `OAuth error: ${data.error} - ${data.error_description ?? ''}` }
+    return { token: data.access_token ?? null }
+  } catch (e: any) {
+    return { token: null, error: `Refresh fetch failed: ${e.message}` }
+  }
 }
 
 const DAY_NAMES  = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -47,44 +52,51 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Google Calendar no conectado' }, { status: 404 })
   }
 
-  let accessToken = integration.access_token
-  if (new Date(integration.token_expiry) <= new Date()) {
-    const newToken = await refreshToken(integration)
-    if (!newToken) return NextResponse.json({ error: 'Token expirado, reconectar Google Calendar' }, { status: 401 })
-    accessToken = newToken
-    await supabase.from('integrations').update({
-      access_token: newToken,
-      token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
-    }).eq('id', integration.id)
-  }
-
   // Search window: from next full hour to DAYS_AHEAD days ahead
   const timeMin = new Date()
   timeMin.setUTCMinutes(0, 0, 0)
   timeMin.setUTCHours(timeMin.getUTCHours() + 1)
   const timeMax = new Date(timeMin.getTime() + DAYS_AHEAD * 24 * 60 * 60 * 1000)
 
-  const fbRes = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      timeZone: 'America/Argentina/Buenos_Aires',
-      items: [{ id: 'primary' }],
-    }),
-  })
+  let busyPeriods: { start: Date; end: Date }[] = []
 
-  if (!fbRes.ok) {
-    return NextResponse.json({ error: 'Error al consultar disponibilidad' }, { status: 500 })
+  // Try to use Google Calendar to filter busy slots; fall back to open schedule if unavailable
+  let accessToken: string | null = integration.access_token
+  if (new Date(integration.token_expiry) <= new Date()) {
+    const { token: newToken } = await refreshToken(integration)
+    if (newToken) {
+      accessToken = newToken
+      await supabase.from('integrations').update({
+        access_token: newToken,
+        token_expiry: new Date(Date.now() + 3600 * 1000).toISOString(),
+      }).eq('id', integration.id)
+    } else {
+      accessToken = null
+    }
   }
 
-  const fbData = await fbRes.json()
-  const busyPeriods: { start: Date; end: Date }[] =
-    (fbData.calendars?.primary?.busy ?? []).map((b: any) => ({
-      start: new Date(b.start),
-      end:   new Date(b.end),
-    }))
+  if (accessToken) {
+    const fbRes = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        timeZone: 'America/Argentina/Buenos_Aires',
+        items: [{ id: 'primary' }],
+      }),
+    })
+
+    if (fbRes.ok) {
+      const fbData = await fbRes.json()
+      busyPeriods = (fbData.calendars?.primary?.busy ?? []).map((b: any) => ({
+        start: new Date(b.start),
+        end:   new Date(b.end),
+      }))
+    }
+    // If FreeBusy call fails, continue with empty busyPeriods (no filtering)
+  }
+  // If token unavailable, continue with empty busyPeriods (show all business-hour slots)
 
   const slots: { key: string; label: string; start_iso: string }[] = []
   const cursor = new Date(timeMin)
