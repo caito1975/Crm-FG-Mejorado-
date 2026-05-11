@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   DndContext, DragEndEvent, DragOverEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCorners,
@@ -35,6 +35,17 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
   const [taskForm, setTaskForm] = useState({ title: '', contact_id: '', date: '', time: '09:00' })
   const [savingTask, setSavingTask] = useState(false)
   const [taskCalMsg, setTaskCalMsg] = useState('')
+
+  // Real-time: refresh deals when n8n or another session creates/updates a deal
+  useEffect(() => {
+    const ch = supabase.channel('pipeline-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
+          .then(({ data }) => data && setDeals(data as Deal[]))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [userId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
