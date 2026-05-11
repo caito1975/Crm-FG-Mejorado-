@@ -36,15 +36,18 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
   const [savingTask, setSavingTask] = useState(false)
   const [taskCalMsg, setTaskCalMsg] = useState('')
 
-  // Real-time: refresh deals when n8n or another session creates/updates a deal
   useEffect(() => {
+    const fetchDeals = () =>
+      supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
+        .then(({ data }) => data && setDeals(data as Deal[]))
+
+    // Realtime works for owner; vendors fall back to polling (RLS blocks vendor realtime)
     const ch = supabase.channel('pipeline-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
-          .then(({ data }) => data && setDeals(data as Deal[]))
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: `user_id=eq.${userId}` }, fetchDeals)
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+
+    const timer = setInterval(fetchDeals, 30_000)
+    return () => { supabase.removeChannel(ch); clearInterval(timer) }
   }, [userId])
 
   const sensors = useSensors(

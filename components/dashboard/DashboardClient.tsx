@@ -54,27 +54,28 @@ export default function DashboardClient({
   const supabase = createClient()
   const { formatAmount } = useCurrency()
 
-  // Real-time subscriptions (RLS ensures vendors only see their data)
   useEffect(() => {
+    const fetchAll = () => {
+      supabase.from('contacts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+        .then(({ data }) => data && setContacts(data as Contact[]))
+      supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
+        .then(({ data }) => data && setDeals(data as Deal[]))
+      supabase.from('tasks').select('*, contact:contacts(id,name,company)').eq('user_id', userId).order('created_at', { ascending: false })
+        .then(({ data }) => data && setTasks(data as Task[]))
+      supabase.from('activities').select('*, contact:contacts(id,name,company)').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+        .then(({ data }) => data && setActivities(data as Activity[]))
+    }
+
+    // Realtime works for owner; vendors fall back to polling (RLS blocks vendor realtime)
     const ch = supabase.channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('contacts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-          .then(({ data }) => data && setContacts(data as Contact[]))
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
-          .then(({ data }) => data && setDeals(data as Deal[]))
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('tasks').select('*, contact:contacts(id,name,company)').eq('user_id', userId).order('created_at', { ascending: false })
-          .then(({ data }) => data && setTasks(data as Task[]))
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('activities').select('*, contact:contacts(id,name,company)').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
-          .then(({ data }) => data && setActivities(data as Activity[]))
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts',   filter: `user_id=eq.${userId}` }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals',      filter: `user_id=eq.${userId}` }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks',      filter: `user_id=eq.${userId}` }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter: `user_id=eq.${userId}` }, fetchAll)
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+
+    const timer = setInterval(fetchAll, 30_000)
+    return () => { supabase.removeChannel(ch); clearInterval(timer) }
   }, [userId])
 
   const periodStart      = getPeriodStart(period)

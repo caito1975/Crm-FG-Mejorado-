@@ -72,15 +72,19 @@ export default function ReportsClient({ deals: initialDeals, contacts: initialCo
       ? supabase.from('contacts').select('*').eq('user_id', userId)
       : supabase.from('contacts').select('*').eq('user_id', userId).eq('assigned_to', currentUserId)
 
+    const fetchAll = () => {
+      dealsQ().then(({ data }) => data && setDeals(data as Deal[]))
+      contactsQ().then(({ data }) => data && setContacts(data as Contact[]))
+    }
+
+    // Realtime works for owner; vendors fall back to polling (RLS blocks vendor realtime)
     const ch = supabase.channel('reports-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals',    filter: `user_id=eq.${userId}` }, () => {
-        dealsQ().then(({ data }) => data && setDeals(data as Deal[]))
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` }, () => {
-        contactsQ().then(({ data }) => data && setContacts(data as Contact[]))
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals',    filter: `user_id=eq.${userId}` }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${userId}` }, fetchAll)
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+
+    const timer = setInterval(fetchAll, 30_000)
+    return () => { supabase.removeChannel(ch); clearInterval(timer) }
   }, [userId])
 
   const won  = deals.filter(d => d.stage_id === 'ganado')
