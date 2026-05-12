@@ -303,37 +303,80 @@ export default function DashboardClient({
               <div className="sub">{teamStats.length} vendedores activos</div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(teamStats.length, 4)}, 1fr)`, gap: 1, borderTop: '1px solid var(--border)' }}>
-            {teamStats.map((v, i) => (
-              <div
-                key={v.member_user_id}
-                style={{
-                  padding: '16px 20px',
-                  borderRight: i < teamStats.length - 1 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{
-                    width: 30, height: 30, borderRadius: '50%',
-                    background: 'var(--accent-soft)', color: 'var(--accent)',
-                    display: 'grid', placeItems: 'center',
-                    fontSize: 12, fontWeight: 600,
-                  }}>
-                    {v.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('')}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${Math.min(teamStats.length, 3)}, 1fr)`,
+            gap: 12,
+            padding: '12px 16px 16px',
+          }}>
+            {teamStats.map(v => {
+              const initials = v.name.split(' ').map((p: string) => p[0]).slice(0, 2).join('')
+              const maxLeads = Math.max(...teamStats.map(s => s.leads), 1)
+              const pct = Math.round((v.leads / maxLeads) * 100)
+              return (
+                <div key={v.member_user_id} style={{
+                  background: 'var(--bg-sunken)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: '14px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}>
+                  {/* Header vendedor */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, var(--accent), oklch(60% 0.18 270))',
+                      color: 'white',
+                      display: 'grid', placeItems: 'center',
+                      fontSize: 13, fontWeight: 700, flexShrink: 0,
+                      boxShadow: '0 2px 6px oklch(60% 0.18 250 / 0.25)',
+                    }}>
+                      {initials}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {v.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Vendedor</div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700,
+                      color: v.won > 0 ? 'var(--success)' : 'var(--text-subtle)',
+                      background: v.won > 0 ? 'oklch(95% 0.04 145)' : 'var(--bg-base)',
+                      border: `1px solid ${v.won > 0 ? 'var(--success)' : 'var(--border)'}`,
+                      borderRadius: 20, padding: '2px 9px',
+                    }}>
+                      {v.won > 0 ? `${v.won} ganados` : 'Sin cierres'}
+                    </span>
                   </div>
+
+                  {/* Barra de leads */}
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{v.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Vendedor</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Leads asignados</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--info)' }}>{v.leads}</span>
+                    </div>
+                    <div style={{ height: 5, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--info)', borderRadius: 99, transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+
+                  {/* Stats fila */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ background: 'var(--bg-base)', borderRadius: 7, padding: '8px 10px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Deals activos</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{v.active_deals}</div>
+                    </div>
+                    <div style={{ background: 'var(--bg-base)', borderRadius: 7, padding: '8px 10px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Pipeline</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'oklch(70% 0.13 75)', lineHeight: 1, fontFamily: 'var(--font-mono)' }}>{formatAmount(v.pipeline)}</div>
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <VendorKpi label="Leads" value={v.leads.toString()} color="var(--info)" />
-                  <VendorKpi label="Deals activos" value={v.active_deals.toString()} color="var(--accent)" />
-                  <VendorKpi label="Pipeline" value={formatAmount(v.pipeline)} color="oklch(70% 0.13 75)" />
-                  <VendorKpi label="Ganados" value={v.won.toString()} color="var(--success)" />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
