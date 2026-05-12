@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import Sidebar from './Sidebar'
 
 interface AppShellProps {
@@ -10,12 +11,48 @@ interface AppShellProps {
   taskCount: number
   teamCount: number
   inboxCount: number
+  themePreference: string
+  densityPreference: string
+  currencyPreference: string
   children: React.ReactNode
 }
 
 export default function AppShell({
-  userName, userRole, isOwner, contactCount, dealCount, taskCount, teamCount, inboxCount, children,
+  userName, userRole, isOwner, contactCount, dealCount, taskCount, teamCount, inboxCount,
+  themePreference, densityPreference, currencyPreference, children,
 }: AppShellProps) {
+
+  useEffect(() => {
+    // Sync Supabase preferences → localStorage on every page load
+    // This ensures settings persist across domains and devices
+    const applyTheme = (t: string) => {
+      if (t === 'Oscuro') {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      } else if (t === 'Claro') {
+        document.documentElement.removeAttribute('data-theme')
+      } else {
+        const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        dark
+          ? document.documentElement.setAttribute('data-theme', 'dark')
+          : document.documentElement.removeAttribute('data-theme')
+      }
+    }
+
+    const applyDensity = (d: string) => {
+      document.documentElement.removeAttribute('data-density')
+      if (d === 'Compacta') document.documentElement.setAttribute('data-density', 'compact')
+      if (d === 'Cómoda')   document.documentElement.setAttribute('data-density', 'cozy')
+    }
+
+    // Always write Supabase values to localStorage so they survive domain changes
+    localStorage.setItem('crm-theme',    themePreference)
+    localStorage.setItem('crm-density',  densityPreference)
+    localStorage.setItem('crm-currency', currencyPreference)
+
+    applyTheme(themePreference)
+    applyDensity(densityPreference)
+  }, [themePreference, densityPreference, currencyPreference])
+
   return (
     <>
       <Sidebar

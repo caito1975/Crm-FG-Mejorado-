@@ -23,6 +23,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ])
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
+  const themePreference   = (user.user_metadata?.crm_theme    as string) || 'Sistema'
+  const densityPreference = (user.user_metadata?.crm_density  as string) || 'Normal'
+  const currencyPreference = (user.user_metadata?.crm_currency as string) || 'ARS'
 
   // Resolve role label
   let userRole = 'Owner'
@@ -45,6 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       taskCount={taskCount ?? 0}
       teamCount={0}
       inboxCount={0}
+      themePreference={themePreference}
+      densityPreference={densityPreference}
+      currencyPreference={currencyPreference}
     >
       {children}
     </AppShell>
