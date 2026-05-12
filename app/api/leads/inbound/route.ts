@@ -74,23 +74,63 @@ export async function POST(req: NextRequest) {
 
   const tags = source ? [source] : []
 
-  // Create contact
+  // ── Deduplicación por teléfono o email ──────────────────────────────────────
+  let existing: { id: string; assigned_to: string | null; name: string } | null = null
+
+  if (phone) {
+    const { data } = await admin
+      .from('contacts')
+      .select('id, assigned_to, name')
+      .eq('user_id', workspaceOwnerId)
+      .eq('phone', phone)
+      .maybeSingle()
+    existing = data
+  }
+
+  if (!existing && email) {
+    const { data } = await admin
+      .from('contacts')
+      .select('id, assigned_to, name')
+      .eq('user_id', workspaceOwnerId)
+      .eq('email', email)
+      .maybeSingle()
+    existing = data
+  }
+
+  // Si ya existe → actualizar last_touch y devolver el existente sin duplicar
+  if (existing) {
+    await admin
+      .from('contacts')
+      .update({ last_touch: new Date().toISOString() })
+      .eq('id', existing.id)
+
+    return NextResponse.json({
+      ok:          true,
+      contact_id:  existing.id,
+      assigned_to: existing.assigned_to,
+      vendor_name: ownerName,
+      duplicate:   true,
+      message:     `Contacto existente: ${existing.name}`,
+    })
+  }
+
+  // ── Crear contacto nuevo ────────────────────────────────────────────────────
   const { data: contact, error } = await admin
     .from('contacts')
     .insert({
-      user_id:    workspaceOwnerId,
+      user_id:     workspaceOwnerId,
       name,
-      phone:      phone ?? null,
-      email:      email ?? null,
-      company:    company ?? null,
-      city:       city ?? null,
-      rubro:      rubro ?? null,
-      status:     'lead',
+      phone:       phone ?? null,
+      email:       email ?? null,
+      company:     company ?? null,
+      city:        city ?? null,
+      rubro:       rubro ?? null,
+      status:      'lead',
       tags,
-      value:      0,
+      value:       0,
       assigned_to: assignedTo,
-      owner_name: ownerName,
-      last_touch: new Date().toISOString(),
+      owner_name:  ownerName,
+      last_touch:  new Date().toISOString(),
     })
     .select()
     .single()
@@ -100,7 +140,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Log in historial
+  // Log en historial solo para contactos nuevos
   await admin.from('historial_leads').insert({
     user_id:        workspaceOwnerId,
     fecha:          new Date().toISOString(),
@@ -115,9 +155,10 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json({
-    ok: true,
+    ok:          true,
     contact_id:  contact.id,
     assigned_to: assignedTo,
     vendor_name: ownerName,
+    duplicate:   false,
   })
 }

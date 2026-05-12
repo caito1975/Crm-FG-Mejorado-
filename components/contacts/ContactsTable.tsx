@@ -188,6 +188,25 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
         }
       }
     } else {
+      // Chequeo de duplicados antes de insertar
+      if (data.phone || data.email) {
+        let dupQuery = supabase.from('contacts').select('id, name').eq('user_id', userId)
+        if (data.phone) {
+          const { data: byPhone } = await dupQuery.eq('phone', data.phone).maybeSingle()
+          if (byPhone) {
+            alert(`Ya existe un contacto con ese teléfono: "${(byPhone as any).name}". Editalo desde la tabla en lugar de crear uno nuevo.`)
+            return
+          }
+        }
+        if (data.email) {
+          const { data: byEmail } = await supabase.from('contacts').select('id, name').eq('user_id', userId).eq('email', data.email).maybeSingle()
+          if (byEmail) {
+            alert(`Ya existe un contacto con ese email: "${(byEmail as any).name}". Editalo desde la tabla en lugar de crear uno nuevo.`)
+            return
+          }
+        }
+      }
+
       const autoAssign = !isOwner && vendorId ? { assigned_to: vendorId } : {}
       const { data: created, error } = await supabase
         .from('contacts').insert({ ...data, ...autoAssign, user_id: userId }).select().single()
