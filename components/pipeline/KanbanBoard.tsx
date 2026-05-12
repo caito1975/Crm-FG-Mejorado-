@@ -90,7 +90,8 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
   async function syncContactStatus(contactId: string | null | undefined, stageId: string) {
     if (!contactId) return
     const status = STAGE_TO_STATUS[stageId] ?? 'oportunidad'
-    await supabase.from('contacts').update({ status }).eq('id', contactId)
+    const { error } = await supabase.from('contacts').update({ status }).eq('id', contactId)
+    if (error) console.error('[syncContactStatus] error:', error.message, { contactId, stageId, status })
   }
 
   async function syncContactValue(contactId: string | null | undefined, currentDeals: Deal[]) {
