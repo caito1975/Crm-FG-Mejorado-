@@ -57,7 +57,7 @@ export default async function DashboardPage() {
 
     const buildStat = (memberId: string, name: string): VendorStat => {
       const mContacts   = allContacts.filter(c => c.assigned_to === memberId)
-      const mDeals      = allDeals.filter(d => d.contact_id && mContacts.some(c => c.id === d.contact_id))
+      const mDeals      = allDeals.filter(d => d.assigned_to === memberId)
       const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
       const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
       return {
