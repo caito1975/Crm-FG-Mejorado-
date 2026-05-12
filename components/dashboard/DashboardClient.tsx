@@ -203,12 +203,13 @@ export default function DashboardClient({
             <div>
               {myContacts.slice(0, 6).map((c, i, arr) => {
                 const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-                  interesado:  { bg: 'oklch(95% 0.04 230)', color: 'var(--info)',    border: 'var(--info)',    label: 'Interesado'  },
-                  oportunidad: { bg: 'var(--accent-soft)',  color: 'var(--accent)', border: 'var(--accent)', label: 'Oportunidad' },
-                  cliente:     { bg: 'oklch(95% 0.04 145)', color: 'var(--success)', border: 'var(--success)', label: 'Cliente'    },
-                  enviado:     { bg: 'oklch(97% 0.05 80)',  color: 'var(--warning)', border: 'var(--warning)', label: 'Enviado'    },
-                  contactado:  { bg: 'var(--bg-sunken)',    color: 'var(--text-muted)', border: 'var(--border)', label: 'Contactado' },
-                  archivado:   { bg: 'var(--bg-sunken)',    color: 'var(--text-subtle)', border: 'var(--border)', label: 'Archivado' },
+                  interesado:  { bg: 'oklch(95% 0.04 230)', color: 'var(--info)',       border: 'var(--info)',       label: 'Interesado'  },
+                  oportunidad: { bg: 'var(--accent-soft)',  color: 'var(--accent)',     border: 'var(--accent)',     label: 'Oportunidad' },
+                  cliente:     { bg: 'oklch(95% 0.04 145)', color: 'var(--success)',    border: 'var(--success)',    label: 'Cliente'     },
+                  enviado:     { bg: 'oklch(97% 0.05 80)',  color: 'var(--warning)',    border: 'var(--warning)',    label: 'Enviado'     },
+                  contactado:  { bg: 'oklch(96% 0.04 195)', color: 'oklch(55% 0.14 195)', border: 'oklch(55% 0.14 195)', label: 'Contactado' },
+                  contactar:   { bg: 'oklch(96% 0.03 210)', color: 'oklch(58% 0.10 210)', border: 'oklch(58% 0.10 210)', label: 'Contactar'  },
+                  archivado:   { bg: 'var(--bg-sunken)',    color: 'var(--text-subtle)', border: 'var(--border)',    label: 'Archivado'   },
                 }
                 const s = STATUS_STYLE[c.status] ?? { bg: 'var(--bg-sunken)', color: 'var(--text-muted)', border: 'var(--border)', label: c.status ?? 'Lead' }
                 return (
@@ -402,12 +403,14 @@ export default function DashboardClient({
           </div>
           <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
-              { label: 'Clientes',       keys: ['cliente'],                                     color: 'var(--success)' },
-              { label: 'Oportunidades',  keys: ['oportunidad'],                                 color: 'var(--accent)' },
-              { label: 'Interesados',    keys: ['interesado'],                                  color: 'var(--info)' },
-              { label: 'Leads',          keys: ['lead', 'contactar', 'no_enviado', 'contactado'], color: 'oklch(65% 0.08 230)' },
-              { label: 'Enviados',        keys: ['enviado'],                                             color: 'var(--warning)' },
-              { label: 'Archivados',     keys: ['archivado'],                                   color: 'var(--text-subtle)' },
+              { label: 'Clientes',       keys: ['cliente'],                       color: 'var(--success)' },
+              { label: 'Oportunidades',  keys: ['oportunidad', 'reu_inicial', 'seg_reu', 'prop_enviada', 'doc_enviada', 'doc_firmada', 'ped_fc'], color: 'var(--accent)' },
+              { label: 'Interesados',    keys: ['interesado'],                    color: 'var(--info)' },
+              { label: 'Contactados',    keys: ['contactado'],                    color: 'oklch(55% 0.14 195)' },
+              { label: 'Contactar',      keys: ['contactar'],                     color: 'oklch(58% 0.10 210)' },
+              { label: 'Leads / Nuevos', keys: ['lead', 'no_enviado'],            color: 'oklch(65% 0.08 230)' },
+              { label: 'Enviados',       keys: ['enviado'],                       color: 'var(--warning)' },
+              { label: 'Archivados',     keys: ['archivado'],                     color: 'var(--text-subtle)' },
             ].map(s => {
               const count = filteredContacts.filter(c => s.keys.includes(c.status)).length
               const pct   = filteredContacts.length > 0 ? Math.round((count / filteredContacts.length) * 100) : 0

@@ -1,14 +1,15 @@
 import type { ContactStatus, TaskPriority } from '@/lib/types'
 
 const STATUS_MAP: Record<ContactStatus, { cls: string; label: string }> = {
-  cliente:     { cls: 'success', label: 'Cliente' },
+  cliente:     { cls: 'success', label: 'Cliente'     },
   oportunidad: { cls: 'accent',  label: 'Oportunidad' },
-  interesado:  { cls: 'info',    label: 'Interesado' },
-  lead:        { cls: '',        label: 'Lead' },
-  archivado:   { cls: '',        label: 'Archivado' },
-  enviado:     { cls: 'warning', label: 'Enviado' },
-  no_enviado:  { cls: 'danger',  label: 'No enviado' },
-  contactar:   { cls: 'warning', label: 'Contactar' },
+  interesado:  { cls: 'info',    label: 'Interesado'  },
+  contactado:  { cls: 'info',    label: 'Contactado'  },
+  contactar:   { cls: 'warning', label: 'Contactar'   },
+  lead:        { cls: '',        label: 'Lead'        },
+  enviado:     { cls: 'warning', label: 'Enviado'     },
+  no_enviado:  { cls: 'danger',  label: 'No enviado'  },
+  archivado:   { cls: '',        label: 'Archivado'   },
 }
 
 const PRIORITY_MAP: Record<TaskPriority, string> = {

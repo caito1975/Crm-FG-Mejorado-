@@ -13,6 +13,7 @@ const STATUS_FILTERS: { label: string; value: ContactStatus | 'all' }[] = [
   { label: 'Todos',         value: 'all' },
   { label: 'Leads',         value: 'lead' },
   { label: 'Contactar',     value: 'contactar' },
+  { label: 'Contactado',    value: 'contactado' },
   { label: 'Enviados',      value: 'enviado' },
   { label: 'No enviados',   value: 'no_enviado' },
   { label: 'Interesados',   value: 'interesado' },
