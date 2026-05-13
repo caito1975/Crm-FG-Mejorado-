@@ -55,10 +55,11 @@ export default function ContactModal({ contact, onSave, onClose, isOwner = true,
 
   function handleMemberChange(memberUserId: string) {
     const member = teamMembers.find(m => m.member_user_id === memberUserId)
+    const resolvedName = member?.name || (memberUserId === ownerId ? (ownerName ?? '') : '')
     setForm(f => ({
       ...f,
       assigned_to: memberUserId,
-      owner_name: member?.name || '',
+      owner_name: resolvedName,
     }))
   }
 

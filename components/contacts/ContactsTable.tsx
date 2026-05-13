@@ -277,6 +277,13 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
           vendedor:       c.owner_name ?? null,
           contact_id:     c.id,
         })
+        if (c.assigned_to) {
+          await cascadeLeadAssignment(
+            supabase, userId, c.id, c.name, c.company,
+            c.assigned_to, c.owner_name ?? '', null,
+            c.status,
+          )
+        }
       }
     }
     setShowModal(false)
