@@ -10,12 +10,18 @@ export async function cascadeLeadAssignment(
 ) {
   if (!newVendorId || newVendorId === prevVendorId) return
 
-  await fetch('/api/assign-lead', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      userId, contactId, contactName, contactCompany,
-      newVendorId, newVendorName, prevVendorId,
-    }),
-  })
+  try {
+    const res = await fetch('/api/assign-lead', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId, contactId, contactName, contactCompany,
+        newVendorId, newVendorName, prevVendorId,
+      }),
+    })
+    const data = await res.json()
+    console.log('[assignLead] response:', data)
+  } catch (err) {
+    console.error('[assignLead] fetch error:', err)
+  }
 }
