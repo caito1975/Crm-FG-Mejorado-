@@ -27,6 +27,7 @@ type VendorOption = { member_user_id: string; name: string; role: string }
 
 interface Props {
   userId: string
+  ownerName?: string
   initialContacts: Contact[]
   isOwner?: boolean
   vendorId?: string
@@ -34,7 +35,7 @@ interface Props {
   statusFilter?: string
 }
 
-export default function ContactsTable({ userId, initialContacts, isOwner = true, vendorId, activityFilter, statusFilter: statusFilterProp }: Props) {
+export default function ContactsTable({ userId, ownerName, initialContacts, isOwner = true, vendorId, activityFilter, statusFilter: statusFilterProp }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const { formatAmount } = useCurrency()
@@ -526,6 +527,8 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditContact(null) }}
           isOwner={isOwner}
+          ownerId={userId}
+          ownerName={ownerName}
         />
       )}
     </>

@@ -15,6 +15,7 @@ export default async function ContactsPage({
   if (!user) redirect('/login')
 
   const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
+  const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner'
 
   let query = supabase.from('contacts').select('*').eq('user_id', workspaceId).order('name')
   // RLS handles vendor filtering automatically — no extra filter needed here
@@ -30,6 +31,7 @@ export default async function ContactsPage({
       <div className="view">
         <ContactsTable
           userId={workspaceId}
+          ownerName={isOwner ? ownerName : undefined}
           initialContacts={(contacts as Contact[]) ?? []}
           isOwner={isOwner}
           vendorId={isOwner ? undefined : user.id}

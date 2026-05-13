@@ -12,9 +12,11 @@ interface Props {
   onSave: (data: Partial<Contact>) => void
   onClose: () => void
   isOwner?: boolean
+  ownerId?: string
+  ownerName?: string
 }
 
-export default function ContactModal({ contact, onSave, onClose, isOwner = true }: Props) {
+export default function ContactModal({ contact, onSave, onClose, isOwner = true, ownerId, ownerName }: Props) {
   const supabase = createClient()
   const [teamMembers, setTeamMembers] = useState<MemberOption[]>([])
 
@@ -141,6 +143,9 @@ export default function ContactModal({ contact, onSave, onClose, isOwner = true 
                     onChange={e => handleMemberChange(e.target.value)}
                   >
                     <option value="">— Sin asignar —</option>
+                    {ownerId && ownerName && (
+                      <option value={ownerId}>{ownerName} · Yo</option>
+                    )}
                     {teamMembers.map(m => (
                       <option key={m.member_user_id} value={m.member_user_id}>
                         {m.name}{m.role ? ` · ${m.role}` : ''}

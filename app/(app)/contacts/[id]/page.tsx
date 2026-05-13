@@ -11,6 +11,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   if (!user) redirect('/login')
 
   const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
+  const ownerName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Owner'
 
   const [
     { data: contact },
@@ -32,6 +33,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
       <div className="view">
         <ContactDetail
           userId={workspaceId}
+          ownerName={isOwner ? ownerName : undefined}
           contact={contact as Contact}
           initialDeals={(deals as Deal[]) ?? []}
           initialTasks={(tasks as Task[]) ?? []}

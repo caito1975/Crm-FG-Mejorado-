@@ -30,6 +30,7 @@ type Tab = 'actividad' | 'deals' | 'tareas' | 'nota'
 
 interface Props {
   userId: string
+  ownerName?: string
   contact: Contact
   initialDeals: Deal[]
   initialTasks: Task[]
@@ -37,7 +38,7 @@ interface Props {
   isOwner?: boolean
 }
 
-export default function ContactDetail({ userId, contact: initialContact, initialDeals, initialTasks, initialActivities, isOwner = true }: Props) {
+export default function ContactDetail({ userId, ownerName, contact: initialContact, initialDeals, initialTasks, initialActivities, isOwner = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [contact, setContact]     = useState(initialContact)
@@ -404,6 +405,8 @@ export default function ContactDetail({ userId, contact: initialContact, initial
           onSave={handleSaveContact}
           onClose={() => setShowEdit(false)}
           isOwner={isOwner}
+          ownerId={userId}
+          ownerName={ownerName}
         />
       )}
 
