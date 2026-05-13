@@ -41,14 +41,18 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
       supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
         .then(({ data }) => data && setDeals(data as Deal[]))
 
-    // Realtime works for owner; vendors fall back to polling (RLS blocks vendor realtime)
+    // Owners subscribe via user_id filter; vendors use assigned_to filter (user_id filter blocked by RLS for vendors)
+    const realtimeFilter = vendorAuthId
+      ? `assigned_to=eq.${vendorAuthId}`
+      : `user_id=eq.${userId}`
+
     const ch = supabase.channel('pipeline-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: `user_id=eq.${userId}` }, fetchDeals)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: realtimeFilter }, fetchDeals)
       .subscribe()
 
-    const timer = setInterval(fetchDeals, 30_000)
+    const timer = setInterval(fetchDeals, 15_000)
     return () => { supabase.removeChannel(ch); clearInterval(timer) }
-  }, [userId])
+  }, [userId, vendorAuthId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
