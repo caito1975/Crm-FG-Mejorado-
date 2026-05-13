@@ -8,6 +8,7 @@ import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import { StatusPill, PriorityPill, TagPill } from '@/components/ui/Pill'
 import ContactModal from './ContactModal'
+import { cascadeLeadAssignment } from '@/lib/assignLead'
 
 const ACTIVITY_ICONS: Record<ActivityKind, string> = {
   email_in:     'mail',
@@ -86,6 +87,12 @@ export default function ContactDetail({ userId, contact: initialContact, initial
           vendedor:       data.owner_name,
           contact_id:     c.id,
         })
+        if (data.assigned_to) {
+          await cascadeLeadAssignment(
+            supabase, userId, contact.id, c.name, c.company,
+            data.assigned_to, data.owner_name, contact.assigned_to,
+          )
+        }
       }
     }
     setShowEdit(false)

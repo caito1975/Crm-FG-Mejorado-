@@ -8,6 +8,7 @@ import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import { StatusPill } from '@/components/ui/Pill'
 import ContactModal from './ContactModal'
+import { cascadeLeadAssignment } from '@/lib/assignLead'
 
 const STATUS_FILTERS: { label: string; value: ContactStatus | 'all' }[] = [
   { label: 'Todos',         value: 'all' },
@@ -114,6 +115,15 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
     setAssigning(true)
     const ids = Array.from(selected)
 
+    // Capturar assigned_to y company previos antes de actualizar
+    const { data: prevData } = await supabase
+      .from('contacts')
+      .select('id, assigned_to, company')
+      .in('id', ids)
+    const prevMap = Object.fromEntries(
+      (prevData ?? []).map(c => [c.id, { assigned_to: c.assigned_to as string | null, company: c.company as string | null }])
+    )
+
     const { data: updated } = await supabase
       .from('contacts')
       .update({ assigned_to: bulkVendorId, owner_name: vendor.name })
@@ -141,6 +151,16 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
           contact_id:     c.id,
         }))
       await supabase.from('historial_leads').insert(historial)
+
+      // Cascade: deal en pipeline + inbox para cada contacto asignado
+      await Promise.all(
+        (updated as { id: string; name: string }[]).map(c =>
+          cascadeLeadAssignment(
+            supabase, userId, c.id, c.name, prevMap[c.id]?.company ?? null,
+            bulkVendorId, vendor.name, prevMap[c.id]?.assigned_to ?? null,
+          )
+        )
+      )
     }
 
     setSelected(new Set())
@@ -186,6 +206,12 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
             vendedor:       data.owner_name,
             contact_id:     c.id,
           })
+          if (data.assigned_to) {
+            await cascadeLeadAssignment(
+              supabase, userId, editContact.id, c.name, c.company,
+              data.assigned_to, data.owner_name, editContact.assigned_to,
+            )
+          }
         }
       }
     } else {
