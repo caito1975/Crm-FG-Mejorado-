@@ -68,6 +68,24 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
       })
   }, [isOwner, userId])
 
+  // Polling + realtime to reflect status changes made from pipeline
+  useEffect(() => {
+    const fetchContacts = () =>
+      supabase.from('contacts').select('*').eq('user_id', userId).order('name')
+        .then(({ data }) => data && setContacts(data as Contact[]))
+
+    const realtimeFilter = vendorId
+      ? `assigned_to=eq.${vendorId}`
+      : `user_id=eq.${userId}`
+
+    const ch = supabase.channel('contacts-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: realtimeFilter }, fetchContacts)
+      .subscribe()
+
+    const timer = setInterval(fetchContacts, 15_000)
+    return () => { supabase.removeChannel(ch); clearInterval(timer) }
+  }, [userId, vendorId])
+
   const stale14Cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
 
   const filtered = contacts.filter(c => {
