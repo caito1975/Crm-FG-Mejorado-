@@ -24,15 +24,44 @@ async function refreshAccessToken(integration: any) {
   return res.json()
 }
 
+// RFC 2047: encode subject for non-ASCII characters (accents, ñ, etc.)
+function encodeSubject(subject: string): string {
+  if (/[^\x00-\x7F]/.test(subject)) {
+    return `=?utf-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`
+  }
+  return subject
+}
+
+// Convert plain text to HTML: newlines → <br>, image URLs → <img>, links → <a>
+function textToHtml(text: string): string {
+  const imageExtRe = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?\S*)?/gi
+  const urlRe      = /https?:\/\/\S+/gi
+
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(imageExtRe, url =>
+      `<img src="${url}" alt="" style="max-width:100%;height:auto;display:block;margin:8px 0" />`
+    )
+    .replace(urlRe, url =>
+      `<a href="${url}" style="color:#4f6ef7">${url}</a>`
+    )
+    .replace(/\n/g, '<br />')
+}
+
 function buildMimeMessage(from: string, to: string, subject: string, body: string): string {
+  const htmlBody = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#222">${textToHtml(body)}</body></html>`
+
   const mime = [
     `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
-    'Content-Type: text/plain; charset=utf-8',
+    `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=utf-8',
+    'Content-Transfer-Encoding: base64',
     '',
-    body,
+    Buffer.from(htmlBody, 'utf-8').toString('base64'),
   ].join('\r\n')
 
   return Buffer.from(mime)
