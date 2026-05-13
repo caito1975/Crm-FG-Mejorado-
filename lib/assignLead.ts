@@ -9,19 +9,24 @@ export async function cascadeLeadAssignment(
   newVendorId: string,
   newVendorName: string,
   prevVendorId: string | null,
+  newContactStatus?: string,
 ) {
   if (!newVendorId || newVendorId === prevVendorId) return
 
-  // Primera etapa activa del workspace
+  // Etapas activas del workspace (excluye terminales)
   const { data: stages } = await supabase
     .from('pipeline_stages')
     .select('id, position')
     .eq('user_id', userId)
     .order('position')
 
-  const firstStageId = stages
-    ?.filter(s => s.id !== 'ganado' && s.id !== 'perdido')
-    ?.[0]?.id ?? 'enviado'
+  const activeStages = stages?.filter(s => s.id !== 'ganado' && s.id !== 'perdido') ?? []
+  const firstStageId = activeStages[0]?.id ?? 'enviado'
+
+  // Si el nuevo estado del contacto coincide con un stage activo, usar ese stage
+  const targetStageId = (newContactStatus && activeStages.some(s => s.id === newContactStatus))
+    ? newContactStatus
+    : firstStageId
 
   // Deal: reasignar activo existente o crear uno nuevo
   const { data: activeDeals } = await supabase
@@ -46,7 +51,7 @@ export async function cascadeLeadAssignment(
         user_id:     userId,
         title:       `Lead: ${contactName}`,
         contact_id:  contactId,
-        stage_id:    firstStageId,
+        stage_id:    targetStageId,
         amount:      0,
         probability: 20,
         owner_name:  newVendorName,
@@ -55,7 +60,7 @@ export async function cascadeLeadAssignment(
       .select('id')
       .single()
     if (error) console.error('[cascade] insert deal:', error.message, error.details)
-    else console.log('[cascade] deal creado:', newDeal?.id, 'stage:', firstStageId)
+    else console.log('[cascade] deal creado:', newDeal?.id, 'stage:', targetStageId)
   }
 
   // Inbox: mensaje visible al vendedor via filtro from_name = nombre contacto asignado

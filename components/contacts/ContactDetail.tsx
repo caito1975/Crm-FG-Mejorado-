@@ -93,6 +93,7 @@ export default function ContactDetail({ userId, contact: initialContact, initial
         await cascadeLeadAssignment(
           supabase, userId, contact.id, c.name, c.company,
           data.assigned_to, data.owner_name ?? '', contact.assigned_to,
+          data.status ?? contact.status,
         )
       }
     }

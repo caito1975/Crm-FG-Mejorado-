@@ -230,6 +230,7 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
           await cascadeLeadAssignment(
             supabase, userId, editContact.id, c.name, c.company,
             data.assigned_to, data.owner_name ?? '', editContact.assigned_to,
+            data.status ?? editContact.status,
           )
         }
       }
