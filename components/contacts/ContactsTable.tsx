@@ -206,12 +206,13 @@ export default function ContactsTable({ userId, initialContacts, isOwner = true,
             vendedor:       data.owner_name,
             contact_id:     c.id,
           })
-          if (data.assigned_to) {
-            await cascadeLeadAssignment(
-              supabase, userId, editContact.id, c.name, c.company,
-              data.assigned_to, data.owner_name, editContact.assigned_to,
-            )
-          }
+        }
+        if (data.assigned_to && data.assigned_to !== editContact.assigned_to) {
+          console.log('[cascade] disparando desde ContactsTable handleSave', { contactId: editContact.id, newVendorId: data.assigned_to })
+          await cascadeLeadAssignment(
+            supabase, userId, editContact.id, c.name, c.company,
+            data.assigned_to, data.owner_name ?? '', editContact.assigned_to,
+          )
         }
       }
     } else {

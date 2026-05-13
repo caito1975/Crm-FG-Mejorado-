@@ -87,12 +87,13 @@ export default function ContactDetail({ userId, contact: initialContact, initial
           vendedor:       data.owner_name,
           contact_id:     c.id,
         })
-        if (data.assigned_to) {
-          await cascadeLeadAssignment(
-            supabase, userId, contact.id, c.name, c.company,
-            data.assigned_to, data.owner_name, contact.assigned_to,
-          )
-        }
+      }
+      if (data.assigned_to && data.assigned_to !== contact.assigned_to) {
+        console.log('[cascade] disparando desde ContactDetail', { contactId: contact.id, newVendorId: data.assigned_to, prevVendorId: contact.assigned_to })
+        await cascadeLeadAssignment(
+          supabase, userId, contact.id, c.name, c.company,
+          data.assigned_to, data.owner_name ?? '', contact.assigned_to,
+        )
       }
     }
     setShowEdit(false)
