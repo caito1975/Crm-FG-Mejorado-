@@ -51,7 +51,7 @@ export default function Sidebar({
   ]
 
   const saved = [
-    { l: 'Mis deals abiertos',   i: 'pipeline', href: '/pipeline' },
+    { l: 'Mis deals abiertos',   i: 'pipeline', href: '/pipeline?mine=1' },
     { l: 'Clientes recurrentes', i: 'star',      href: '/contacts?status=cliente' },
     { l: 'Sin actividad +14d',   i: 'flag',      href: '/contacts?activity=stale' },
   ]

@@ -11,6 +11,7 @@ interface Props {
   userId: string
   isOwner?: boolean
   vendorAuthId?: string
+  mineFilter?: string
   stages: PipelineStage[]
   initialDeals: Deal[]
   contacts: Pick<Contact, 'id' | 'name' | 'company'>[]

@@ -17,12 +17,13 @@ interface Props {
   userId: string
   isOwner?: boolean
   vendorAuthId?: string
+  mineFilter?: string
   stages: PipelineStage[]
   initialDeals: Deal[]
   contacts: Pick<Contact, 'id' | 'name' | 'company'>[]
 }
 
-export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stages, initialDeals, contacts }: Props) {
+export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mineFilter, stages, initialDeals, contacts }: Props) {
   const supabase = createClient()
   const { formatAmount } = useCurrency()
   const [deals, setDeals]         = useState(initialDeals)
@@ -37,14 +38,18 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
   const [taskCalMsg, setTaskCalMsg] = useState('')
 
   useEffect(() => {
-    const fetchDeals = () =>
-      supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
-        .then(({ data }) => data && setDeals(data as Deal[]))
+    const fetchDeals = () => {
+      let q = supabase.from('deals').select('*, contact:contacts(id,name,company)').eq('user_id', userId)
+      if (mineFilter) q = q.eq('assigned_to', mineFilter)
+      q.then(({ data }) => data && setDeals(data as Deal[]))
+    }
 
     // Owners subscribe via user_id filter; vendors use assigned_to filter (user_id filter blocked by RLS for vendors)
     const realtimeFilter = vendorAuthId
       ? `assigned_to=eq.${vendorAuthId}`
-      : `user_id=eq.${userId}`
+      : mineFilter
+        ? `assigned_to=eq.${mineFilter}`
+        : `user_id=eq.${userId}`
 
     const ch = supabase.channel('pipeline-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'deals', filter: realtimeFilter }, fetchDeals)
@@ -52,7 +57,7 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, stag
 
     const timer = setInterval(fetchDeals, 15_000)
     return () => { supabase.removeChannel(ch); clearInterval(timer) }
-  }, [userId, vendorAuthId])
+  }, [userId, vendorAuthId, mineFilter])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
