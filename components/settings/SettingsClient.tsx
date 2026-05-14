@@ -55,6 +55,9 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
   const [pwForm, setPwForm]     = useState({ current: '', next: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg]       = useState<{ text: string; ok: boolean } | null>(null)
+  const [profileForm, setProfileForm] = useState({ display_name: '', wa: '', sender_email: '' })
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileMsg, setProfileMsg]     = useState<{ text: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     const savedTheme    = (localStorage.getItem('crm-theme')     as Theme)    || 'Sistema'
@@ -81,6 +84,12 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
       if (c && !localStorage.getItem('crm-currency')) {
         setCurrency(c); localStorage.setItem('crm-currency', c)
       }
+      // Load profile contact data
+      setProfileForm({
+        display_name:  meta.crm_display_name  || meta.full_name || '',
+        wa:            meta.crm_wa            || '',
+        sender_email:  meta.crm_sender_email  || userEmail || '',
+      })
     })
 
     // Load connected integrations (personal — usa authUserId)
@@ -194,6 +203,26 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
       setPwForm({ current: '', next: '', confirm: '' })
     }
     setPwSaving(false)
+  }
+
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault()
+    setProfileSaving(true)
+    setProfileMsg(null)
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        crm_display_name: profileForm.display_name,
+        crm_wa:           profileForm.wa,
+        crm_sender_email: profileForm.sender_email,
+      },
+    })
+    if (error) {
+      setProfileMsg({ text: error.message, ok: false })
+    } else {
+      setProfileMsg({ text: 'Datos guardados', ok: true })
+      setTimeout(() => setProfileMsg(null), 3000)
+    }
+    setProfileSaving(false)
   }
 
   async function handleSync(provider: string) {
@@ -462,7 +491,63 @@ export default function SettingsClient({ userId, authUserId, userEmail, stages: 
       )}
 
       {tab === 'cuenta' && (
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Datos de contacto del sender */}
+          <div className="card">
+            <div className="card-head"><h3>Mis datos de contacto</h3></div>
+            <div className="card-pad">
+              <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="field">
+                  <label>Nombre para mostrar</label>
+                  <input
+                    className="input"
+                    placeholder="Carlos Perilli"
+                    value={profileForm.display_name}
+                    onChange={e => setProfileForm(f => ({ ...f, display_name: e.target.value }))}
+                  />
+                </div>
+                <div className="field">
+                  <label>WhatsApp (con código de país)</label>
+                  <input
+                    className="input"
+                    placeholder="5491155072395"
+                    value={profileForm.wa}
+                    onChange={e => setProfileForm(f => ({ ...f, wa: e.target.value.replace(/\D/g, '') }))}
+                  />
+                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                    Número desde el que enviás mensajes. Sin +, sin espacios.
+                  </span>
+                </div>
+                <div className="field">
+                  <label>Email de envío</label>
+                  <input
+                    className="input"
+                    type="email"
+                    placeholder="cperilli@fgmedios.com"
+                    value={profileForm.sender_email}
+                    onChange={e => setProfileForm(f => ({ ...f, sender_email: e.target.value }))}
+                  />
+                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                    Aparece como remitente en los mails que enviás desde el CRM.
+                  </span>
+                </div>
+                {profileMsg && (
+                  <div style={{
+                    fontSize: 13, padding: '8px 12px', borderRadius: 6,
+                    background: profileMsg.ok ? 'var(--success-soft, oklch(95% 0.04 145))' : 'var(--danger-soft, oklch(95% 0.04 25))',
+                    color: profileMsg.ok ? 'var(--success)' : 'var(--danger)',
+                  }}>
+                    {profileMsg.text}
+                  </div>
+                )}
+                <button type="submit" className="btn primary" disabled={profileSaving}>
+                  {profileSaving ? 'Guardando…' : 'Guardar datos'}
+                </button>
+              </form>
+            </div>
+          </div>
+
           <div className="card">
             <div className="card-head">
               <div>

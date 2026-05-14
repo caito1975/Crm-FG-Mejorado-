@@ -36,11 +36,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Evolution API: ${err}` }, { status: 500 })
   }
 
+  const senderWa = user.user_metadata?.crm_wa || EVO_INSTANCE
   const svc = serviceClient()
   await svc.from('activities').insert({
     user_id:    user.id,
     kind:       'email_out',
-    who:        user.email,
+    who:        `WA ${senderWa}`,
     body:       `[WA] ${message.substring(0, 200)}`,
     contact_id: contact_id ?? null,
   })

@@ -107,7 +107,10 @@ export async function POST(req: NextRequest) {
     }).eq('id', integration.id)
   }
 
-  const raw = buildMimeMessage(integration.email, to, subject, body)
+  const displayName   = user.user_metadata?.crm_display_name || user.user_metadata?.full_name || ''
+  const senderEmail   = user.user_metadata?.crm_sender_email || integration.email
+  const fromField     = displayName ? `${displayName} <${senderEmail}>` : senderEmail
+  const raw = buildMimeMessage(fromField, to, subject, body)
 
   const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method:  'POST',
