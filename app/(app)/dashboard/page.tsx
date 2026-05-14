@@ -14,6 +14,11 @@ export interface VendorStat {
   won: number
 }
 
+export interface WorkspaceMember {
+  member_user_id: string
+  name: string
+}
+
 export default async function DashboardPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -40,7 +45,8 @@ export default async function DashboardPage() {
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
 
   // ── Build per-vendor stats (owner sees team + themselves) ───────────────────
-  let teamStats: VendorStat[] = []
+  let workspaceMembers: WorkspaceMember[] = []
+  let ownerMember: WorkspaceMember | null = null
   let vendorName: string | null = null
 
   if (isOwner) {
@@ -52,29 +58,14 @@ export default async function DashboardPage() {
       .not('member_user_id', 'is', null)
       .order('name')
 
+    workspaceMembers = (members ?? []) as WorkspaceMember[]
+
+    // Include owner if they have contacts assigned to themselves
     const allContacts = (contacts as Contact[]) ?? []
-    const allDeals    = (deals as Deal[]) ?? []
-
-    const buildStat = (memberId: string, name: string): VendorStat => {
-      const mContacts   = allContacts.filter(c => c.assigned_to === memberId)
-      const mDeals      = allDeals.filter(d => d.assigned_to === memberId)
-      const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
-      const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
-      return {
-        member_user_id: memberId,
-        name,
-        leads:        mContacts.length,
-        active_deals: activeDeals.length,
-        pipeline:     activeDeals.reduce((s, d) => s + d.amount, 0),
-        won:          wonDeals.length,
-      }
-    }
-
-    const vendorStats  = (members ?? []).map(m => buildStat(m.member_user_id, m.name))
-    // Include owner's own assigned leads in the team stats
     const ownerAssigned = allContacts.filter(c => c.assigned_to === workspaceId)
-    const ownerStat     = ownerAssigned.length > 0 ? buildStat(workspaceId, `${userName} (yo)`) : null
-    teamStats = [...(ownerStat ? [ownerStat] : []), ...vendorStats]
+    if (ownerAssigned.length > 0) {
+      ownerMember = { member_user_id: workspaceId, name: `${userName} (yo)` }
+    }
   } else {
     // Vendor: resolve their display name
     const { data: member } = await supabase
@@ -103,7 +94,8 @@ export default async function DashboardPage() {
           userName={userName}
           isOwner={isOwner}
           vendorName={vendorName}
-          teamStats={teamStats}
+          workspaceMembers={workspaceMembers}
+          ownerMember={ownerMember}
           initialContacts={(contacts as Contact[]) ?? []}
           initialDeals={(deals as Deal[]) ?? []}
           initialTasks={(tasks as Task[]) ?? []}

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Contact, Deal, Task, Activity } from '@/lib/types'
-import type { VendorStat } from '@/app/(app)/dashboard/page'
+import type { VendorStat, WorkspaceMember } from '@/app/(app)/dashboard/page'
 import { useCurrency } from '@/lib/useCurrency'
 import Icon from '@/components/ui/Icon'
 import Sparkline from '@/components/ui/Sparkline'
@@ -20,7 +20,8 @@ interface Props {
   userName: string
   isOwner: boolean
   vendorName: string | null
-  teamStats: VendorStat[]
+  workspaceMembers: WorkspaceMember[]
+  ownerMember: WorkspaceMember | null
   initialContacts: Contact[]
   initialDeals: Deal[]
   initialTasks: Task[]
@@ -43,7 +44,8 @@ function getPeriodStart(p: Period): Date {
 }
 
 export default function DashboardClient({
-  userId, currentUserId, userName, isOwner, vendorName, teamStats,
+  userId, currentUserId, userName, isOwner, vendorName,
+  workspaceMembers, ownerMember,
   initialContacts, initialDeals, initialTasks, initialActivities,
 }: Props) {
   const [contacts,   setContacts]   = useState(initialContacts)
@@ -88,7 +90,7 @@ export default function DashboardClient({
   const lostDeals      = filteredDeals.filter(d => d.stage_id === 'perdido')
   const totalPipeline  = openDeals.reduce((s, d) => s + d.amount, 0)
   const totalWon       = wonDeals.reduce((s, d) => s + d.amount, 0)
-  const totalInvestment = filteredDeals.reduce((s, d) => s + d.amount, 0)
+  const totalInvestment = openDeals.reduce((s, d) => s + d.amount, 0)
   const closeRate      = filteredDeals.length > 0 ? Math.round((wonDeals.length / filteredDeals.length) * 100) : 0
   const lossRate       = filteredDeals.length > 0 ? Math.round((lostDeals.length / filteredDeals.length) * 100) : 0
   const activeLeads    = filteredContacts.filter(c => c.status !== 'cliente' && c.status !== 'archivado')
@@ -101,6 +103,29 @@ export default function DashboardClient({
     const d = new Date(t.due_date)
     return d >= todayStart && d <= todayEnd
   })
+
+  // ── Team stats (recalculated client-side with period filter) ──────────────
+  const buildStat = (memberId: string, name: string): VendorStat => {
+    const mContacts   = contacts.filter(c => c.assigned_to === memberId)
+    const mDeals      = filteredDeals.filter(d => d.assigned_to === memberId)
+    const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
+    const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
+    return {
+      member_user_id: memberId,
+      name,
+      leads:        mContacts.length,
+      active_deals: activeDeals.length,
+      pipeline:     activeDeals.reduce((s, d) => s + d.amount, 0),
+      won:          wonDeals.length,
+    }
+  }
+
+  const teamStats: VendorStat[] = isOwner
+    ? [
+        ...(ownerMember ? [buildStat(ownerMember.member_user_id, ownerMember.name)] : []),
+        ...workspaceMembers.map(m => buildStat(m.member_user_id, m.name)),
+      ]
+    : []
 
   // Leads/deals personales — funciona para owner y vendor
   const myContacts  = contacts.filter(c => c.assigned_to === currentUserId)
