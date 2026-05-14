@@ -38,6 +38,7 @@ export default function DealModal({ deal, defaultStageId, stages, contacts, onSa
     probability: deal?.probability || 20,
     close_date:  deal?.close_date  || '',
     owner_name:  deal?.owner_name  || '',
+    notes:       deal?.notes       || '',
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -48,6 +49,7 @@ export default function DealModal({ deal, defaultStageId, stages, contacts, onSa
       probability: Number(form.probability),
       contact_id: form.contact_id || null,
       close_date: form.close_date || null,
+      notes: form.notes || null,
     })
   }
 
@@ -108,6 +110,18 @@ export default function DealModal({ deal, defaultStageId, stages, contacts, onSa
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="field">
+              <label>Notas</label>
+              <textarea
+                className="input"
+                rows={4}
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Notas internas sobre este deal..."
+                style={{ resize: 'vertical', minHeight: 80 }}
+              />
             </div>
           </div>
           <div className="modal-foot">

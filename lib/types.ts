@@ -75,6 +75,7 @@ export interface Deal {
   close_date: string | null
   owner_name: string | null
   position: number
+  notes: string | null
   contact?: Contact
   assigned_to: string | null
 }

@@ -45,6 +45,16 @@ export default function DealCard({ deal, isDragging, onEdit, onDelete, onAddTask
         </div>
       )}
 
+      {/* Notes indicator */}
+      {deal.notes && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Icon name="note" size={11} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+            {deal.notes}
+          </span>
+        </div>
+      )}
+
       {/* Meta row */}
       <div className="kmeta">
         <span className="kamt">{formatAmount(deal.amount)}</span>
