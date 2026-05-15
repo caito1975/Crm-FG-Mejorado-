@@ -28,22 +28,35 @@ export async function cascadeLeadAssignment(
     ? newContactStatus
     : firstStageId
 
-  // Deal: reasignar activo existente o crear uno nuevo
+  // Deal: garantizar exactamente 1 deal activo por contacto
   const { data: activeDeals } = await supabase
     .from('deals')
-    .select('id')
+    .select('id, stage_id')
     .eq('contact_id', contactId)
     .neq('stage_id', 'ganado')
     .neq('stage_id', 'perdido')
-    .limit(1)
+    .order('created_at', { ascending: false })
 
-  if (activeDeals && activeDeals.length > 0) {
+  if (activeDeals && activeDeals.length > 1) {
+    // Eliminar duplicados — conservar el más reciente
+    const [keep, ...extras] = activeDeals
+    const extraIds = extras.map(d => d.id)
+    await supabase.from('deals').delete().in('id', extraIds)
+    console.log('[cascade] duplicados eliminados:', extraIds)
+    // Actualizar el que conservamos
     const { error } = await supabase
       .from('deals')
-      .update({ assigned_to: newVendorId, owner_name: newVendorName })
+      .update({ assigned_to: newVendorId, owner_name: newVendorName, stage_id: targetStageId })
+      .eq('id', keep.id)
+    if (error) console.error('[cascade] update deal:', error.message)
+    else console.log('[cascade] deal actualizado (dedup):', keep.id, 'stage:', targetStageId)
+  } else if (activeDeals && activeDeals.length === 1) {
+    const { error } = await supabase
+      .from('deals')
+      .update({ assigned_to: newVendorId, owner_name: newVendorName, stage_id: targetStageId })
       .eq('id', activeDeals[0].id)
     if (error) console.error('[cascade] update deal:', error.message)
-    else console.log('[cascade] deal reasignado:', activeDeals[0].id)
+    else console.log('[cascade] deal reasignado:', activeDeals[0].id, 'stage:', targetStageId)
   } else {
     const { data: newDeal, error } = await supabase
       .from('deals')
