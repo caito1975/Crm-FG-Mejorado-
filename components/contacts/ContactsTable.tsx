@@ -304,9 +304,9 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
             <h1>Contactos</h1>
             <p>
               {contacts.length} contactos · {contacts.filter(c => c.status === 'cliente').length} clientes
-              {isOwner && contacts.filter(c => !c.assigned_to).length > 0 && (
+              {isOwner && contacts.filter(c => !c.assigned_to && !c.owner_name).length > 0 && (
                 <span style={{ color: 'var(--warning)', marginLeft: 8 }}>
-                  · {contacts.filter(c => !c.assigned_to).length} sin asignar
+                  · {contacts.filter(c => !c.assigned_to && !c.owner_name).length} sin asignar
                 </span>
               )}
             </p>
@@ -435,12 +435,17 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
                     {c.value ? formatAmount(c.value) : '—'}
                   </td>
                   <td className="cell-muted">
-                    {c.owner_name
-                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
-                          {c.owner_name}
-                        </span>
-                      : <span style={{ color: 'var(--warning)', fontSize: 11.5 }}>Sin asignar</span>}
+                    {(() => {
+                      const displayName = c.owner_name
+                        || vendors.find(v => v.member_user_id === c.assigned_to)?.name
+                        || (c.assigned_to === userId ? ownerName : null)
+                      return displayName
+                        ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', flexShrink: 0 }} />
+                            {displayName}
+                          </span>
+                        : <span style={{ color: 'var(--warning)', fontSize: 11.5 }}>Sin asignar</span>
+                    })()}
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
