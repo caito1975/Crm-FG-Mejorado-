@@ -1,5 +1,48 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Status → stage mapping (only direct 1:1 mappings)
+const STATUS_TO_STAGE: Record<string, string> = {
+  contactar:   'contactar',
+  contactado:  'contactado',
+  interesado:  'interesado',
+  enviado:     'enviado',
+  oportunidad: 'oportunidad',
+  cliente:     'ganado',
+  archivado:   'perdido',
+}
+
+// Oportunidad sub-stages — don't override these when status='oportunidad'
+const OPORTUNIDAD_STAGES = new Set(['oportunidad', 'reu_inicial', 'seg_reu', 'prop_enviada', 'doc_enviada', 'doc_firmada', 'ped_fc'])
+
+export async function syncDealStageFromStatus(
+  supabase: SupabaseClient,
+  contactId: string,
+  newStatus: string,
+) {
+  const targetStage = STATUS_TO_STAGE[newStatus]
+  if (!targetStage) return // lead, no_enviado — no direct mapping, don't touch
+
+  // Find the active deal for this contact
+  const { data: activeDeal } = await supabase
+    .from('deals')
+    .select('id, stage_id')
+    .eq('contact_id', contactId)
+    .neq('stage_id', 'ganado')
+    .neq('stage_id', 'perdido')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!activeDeal) return
+
+  // Don't downgrade an oportunidad sub-stage back to 'oportunidad'
+  if (newStatus === 'oportunidad' && OPORTUNIDAD_STAGES.has(activeDeal.stage_id)) return
+
+  if (activeDeal.stage_id !== targetStage) {
+    await supabase.from('deals').update({ stage_id: targetStage }).eq('id', activeDeal.id)
+  }
+}
+
 export async function cascadeLeadAssignment(
   supabase: SupabaseClient,
   userId: string,

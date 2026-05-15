@@ -8,7 +8,7 @@ import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import { StatusPill, PriorityPill, TagPill } from '@/components/ui/Pill'
 import ContactModal from './ContactModal'
-import { cascadeLeadAssignment } from '@/lib/assignLead'
+import { cascadeLeadAssignment, syncDealStageFromStatus } from '@/lib/assignLead'
 
 const ACTIVITY_ICONS: Record<ActivityKind, string> = {
   email_in:     'mail',
@@ -74,6 +74,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
           vendedor:       c.owner_name ?? null,
           contact_id:     c.id,
         })
+        await syncDealStageFromStatus(supabase, c.id, data.status)
       }
       if (data.owner_name && data.owner_name !== contact.owner_name) {
         await supabase.from('historial_leads').insert({
