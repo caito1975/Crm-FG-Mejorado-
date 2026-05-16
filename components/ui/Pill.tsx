@@ -8,8 +8,10 @@ const STATUS_MAP: Record<ContactStatus, { cls: string; label: string }> = {
   contactar:   { cls: 'warning', label: 'Contactar'   },
   lead:        { cls: '',        label: 'Lead'        },
   enviado:     { cls: 'warning', label: 'Enviado'     },
-  no_enviado:  { cls: 'danger',  label: 'No enviado'  },
-  archivado:   { cls: '',        label: 'Archivado'   },
+  no_enviado:    { cls: 'danger',  label: 'No enviado'    },
+  archivado:     { cls: '',        label: 'Archivado'     },
+  seguimiento_1: { cls: 'warning', label: 'Seguimiento 1' },
+  seguimiento_2: { cls: 'warning', label: 'Seguimiento 2' },
 }
 
 const PRIORITY_MAP: Record<TaskPriority, string> = {

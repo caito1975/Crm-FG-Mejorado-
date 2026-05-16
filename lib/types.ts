@@ -1,6 +1,6 @@
 // Norte CRM — TypeScript types
 
-export type ContactStatus = 'cliente' | 'oportunidad' | 'lead' | 'archivado' | 'enviado' | 'no_enviado' | 'interesado' | 'contactar' | 'contactado'
+export type ContactStatus = 'cliente' | 'oportunidad' | 'lead' | 'archivado' | 'enviado' | 'no_enviado' | 'interesado' | 'contactar' | 'contactado' | 'seguimiento_1' | 'seguimiento_2'
 export type TaskPriority  = 'alta' | 'media' | 'baja'
 export type ActivityKind  = 'email_in' | 'email_out' | 'call_out' | 'meeting' | 'note' | 'invoice' | 'stage_change'
 export type MemberPerm    = 'admin' | 'manager' | 'vendedor' | 'sdr' | 'viewer'
