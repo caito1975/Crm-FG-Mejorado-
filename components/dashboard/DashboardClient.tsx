@@ -106,7 +106,7 @@ export default function DashboardClient({
 
   // ── Team stats (recalculated client-side with period filter) ──────────────
   const buildStat = (memberId: string, name: string): VendorStat => {
-    const mContacts   = contacts.filter(c => c.assigned_to === memberId)
+    const mContacts   = contacts.filter(c => c.assigned_to === memberId && c.status !== 'cliente' && c.status !== 'archivado')
     const mDeals      = filteredDeals.filter(d => d.assigned_to === memberId)
     const activeDeals = mDeals.filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
     const wonDeals    = mDeals.filter(d => d.stage_id === 'ganado')
