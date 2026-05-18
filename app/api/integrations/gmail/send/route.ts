@@ -24,13 +24,15 @@ async function refreshAccessToken(integration: any) {
   return res.json()
 }
 
-// RFC 2047: encode subject for non-ASCII characters (accents, ñ, etc.)
-function encodeSubject(subject: string): string {
-  if (/[^\x00-\x7F]/.test(subject)) {
-    return `=?utf-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`
+// RFC 2047: encode string for non-ASCII characters (accents, ñ, etc.)
+function encodeRfc2047(text: string): string {
+  if (/[^\x00-\x7F]/.test(text)) {
+    return `=?utf-8?B?${Buffer.from(text, 'utf-8').toString('base64')}?=`
   }
-  return subject
+  return text
 }
+
+const encodeSubject = encodeRfc2047
 
 // Convert plain text to HTML: newlines → <br>, image URLs → <img>, links → <a>
 function textToHtml(text: string): string {
@@ -109,7 +111,7 @@ export async function POST(req: NextRequest) {
 
   const displayName   = user.user_metadata?.crm_display_name || user.user_metadata?.full_name || ''
   const senderEmail   = user.user_metadata?.crm_sender_email || integration.email
-  const fromField     = displayName ? `${displayName} <${senderEmail}>` : senderEmail
+  const fromField     = displayName ? `${encodeRfc2047(displayName)} <${senderEmail}>` : senderEmail
   const raw = buildMimeMessage(fromField, to, subject, body)
 
   const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
