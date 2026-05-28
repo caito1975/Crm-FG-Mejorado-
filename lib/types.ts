@@ -37,6 +37,7 @@ export const RUBROS = [
   'Muebles - Deco',
   'Turismo',
   'Real State',
+  'Marcas Premium',
   'Otros',
 ] as const
 
