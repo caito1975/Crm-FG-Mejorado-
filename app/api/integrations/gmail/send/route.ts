@@ -60,36 +60,30 @@ function processInline(text: string): string {
   return s
 }
 
-// Convert plain text to HTML preserving bullets, paragraphs, and spacing
+// Convert plain text to HTML preserving bullets, paragraphs, and spacing.
+// Uses explicit bullet characters instead of <ul>/<li> because many email clients
+// (Outlook, Gmail mobile) strip or mangle list tags.
 function textToHtml(text: string): string {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   const result: string[] = []
-  let inList = false
 
   for (const line of lines) {
-    // Detect bullet lines: starts with •, -, or * (optionally preceded by whitespace/tab)
-    const bulletMatch = line.match(/^[\s\t]*[•\-\*]\t?[\s]*(.+)$/)
+    // Detect bullet: •, ·, *, - at start, optionally preceded by spaces/tabs
+    const bulletMatch = line.match(/^[\s\t]*[•·●◦\*\-]\t?[\s]*(.+)$/)
 
     if (bulletMatch) {
-      if (!inList) {
-        result.push('<ul style="margin:10px 0;padding-left:28px">')
-        inList = true
-      }
-      result.push(`<li style="margin:5px 0;line-height:1.6">${processInline(bulletMatch[1].trim())}</li>`)
+      // Explicit bullet char + indent — works in all email clients
+      result.push(
+        `<p style="margin:3px 0;padding-left:22px;text-indent:-14px;line-height:1.6">` +
+        `&#8226;&nbsp;&nbsp;${processInline(bulletMatch[1].trim())}</p>`
+      )
+    } else if (line.trim() === '') {
+      result.push('<div style="height:10px">&nbsp;</div>')
     } else {
-      if (inList) {
-        result.push('</ul>')
-        inList = false
-      }
-      if (line.trim() === '') {
-        result.push('<div style="height:8px"></div>')
-      } else {
-        result.push(`<p style="margin:0 0 8px 0;line-height:1.6">${processInline(line)}</p>`)
-      }
+      result.push(`<p style="margin:0 0 6px 0;line-height:1.6">${processInline(line)}</p>`)
     }
   }
 
-  if (inList) result.push('</ul>')
   return result.join('')
 }
 
