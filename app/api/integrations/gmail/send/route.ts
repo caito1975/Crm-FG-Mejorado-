@@ -34,26 +34,67 @@ function encodeRfc2047(text: string): string {
 
 const encodeSubject = encodeRfc2047
 
-// Convert plain text to HTML: newlines → <br>, image URLs → <img>, links → <a>
-function textToHtml(text: string): string {
-  const imageExtRe = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?\S*)?/gi
-  const urlRe      = /https?:\/\/\S+/gi
-
-  return text
+// Process inline content: HTML-escape, then convert image URLs → <img>, other URLs → <a>
+function processInline(text: string): string {
+  let s = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(imageExtRe, url =>
-      `<img src="${url}" alt="" style="max-width:100%;height:auto;display:block;margin:8px 0" />`
-    )
-    .replace(urlRe, url =>
-      `<a href="${url}" style="color:#4f6ef7">${url}</a>`
-    )
-    .replace(/\n/g, '<br />')
+
+  // Image URLs — replace with placeholder first to avoid double-matching by link regex
+  const imgs: string[] = []
+  s = s.replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp|svg)(?:[?#]\S*)?/gi, url => {
+    const idx = imgs.length
+    imgs.push(`<img src="${url}" alt="" style="max-width:100%;height:auto;display:block;margin:8px 0" />`)
+    return `\x02IMG${idx}\x02`
+  })
+
+  // Remaining URLs → links
+  s = s.replace(/https?:\/\/\S+/gi, url =>
+    `<a href="${url}" style="color:#4f6ef7">${url}</a>`
+  )
+
+  // Restore image tags
+  imgs.forEach((tag, i) => { s = s.split(`\x02IMG${i}\x02`).join(tag) })
+
+  return s
+}
+
+// Convert plain text to HTML preserving bullets, paragraphs, and spacing
+function textToHtml(text: string): string {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  const result: string[] = []
+  let inList = false
+
+  for (const line of lines) {
+    // Detect bullet lines: starts with •, -, or * (optionally preceded by whitespace/tab)
+    const bulletMatch = line.match(/^[\s\t]*[•\-\*]\t?[\s]*(.+)$/)
+
+    if (bulletMatch) {
+      if (!inList) {
+        result.push('<ul style="margin:10px 0;padding-left:28px">')
+        inList = true
+      }
+      result.push(`<li style="margin:5px 0;line-height:1.6">${processInline(bulletMatch[1].trim())}</li>`)
+    } else {
+      if (inList) {
+        result.push('</ul>')
+        inList = false
+      }
+      if (line.trim() === '') {
+        result.push('<div style="height:8px"></div>')
+      } else {
+        result.push(`<p style="margin:0 0 8px 0;line-height:1.6">${processInline(line)}</p>`)
+      }
+    }
+  }
+
+  if (inList) result.push('</ul>')
+  return result.join('')
 }
 
 function buildMimeMessage(from: string, to: string, subject: string, body: string): string {
-  const htmlBody = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#222">${textToHtml(body)}</body></html>`
+  const htmlBody = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222;max-width:650px;margin:0 auto;padding:20px">${textToHtml(body)}</body></html>`
 
   const mime = [
     `From: ${from}`,
