@@ -32,6 +32,7 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mine
   const [showModal, setShowModal]       = useState(false)
   const [editDeal, setEditDeal]         = useState<Deal | null>(null)
   const [defaultStage, setDefaultStage] = useState<string>('enviado')
+  const [searchQuery, setSearchQuery] = useState('')
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [taskForm, setTaskForm] = useState({ title: '', contact_id: '', date: '', time: '09:00' })
   const [savingTask, setSavingTask] = useState(false)
@@ -283,7 +284,19 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mine
     setShowModal(true)
   }
 
-  const totalPipeline = deals
+  const visibleDeals = searchQuery.trim()
+    ? deals.filter(d => {
+        const q = searchQuery.toLowerCase()
+        const contact = d.contact as { name?: string; company?: string } | undefined
+        return (
+          (contact?.name ?? '').toLowerCase().includes(q) ||
+          (contact?.company ?? '').toLowerCase().includes(q) ||
+          d.title.toLowerCase().includes(q)
+        )
+      })
+    : deals
+
+  const totalPipeline = visibleDeals
     .filter(d => d.stage_id !== 'ganado' && d.stage_id !== 'perdido')
     .reduce((s, d) => s + d.amount, 0)
 
@@ -291,6 +304,9 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mine
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
       <Topbar
         crumbs={[{ label: 'Pipeline' }]}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar contacto o empresa…"
         actions={
           <>
             {!isOwner && (
@@ -304,7 +320,7 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mine
               </span>
             )}
             <span style={{ fontSize: 12.5, color: 'var(--text-muted)', marginRight: 4 }}>
-              <b style={{ color: 'var(--text)' }}>{deals.filter(d => d.stage_id !== 'perdido').length}</b> deals
+              <b style={{ color: 'var(--text)' }}>{visibleDeals.filter(d => d.stage_id !== 'perdido').length}</b> deals
               {' · '}
               <b style={{ color: 'var(--text)', fontFamily: 'var(--font-mono)' }}>{formatAmount(totalPipeline)}</b>
             </span>
@@ -329,7 +345,7 @@ export default function KanbanBoard({ userId, isOwner = true, vendorAuthId, mine
         >
           <div className="kanban">
             {stages.map(stage => {
-              const stageDeals = deals.filter(d => d.stage_id === stage.id)
+              const stageDeals = visibleDeals.filter(d => d.stage_id === stage.id)
               return (
                 <KanbanColumn
                   key={stage.id}
