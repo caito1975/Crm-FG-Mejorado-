@@ -28,6 +28,44 @@ const STAGE_LABELS: Record<string, string> = {
 
 type Tab = 'actividad' | 'deals' | 'tareas' | 'nota'
 
+// Convert the HTML clipboard flavor (Word/Outlook/Gmail) to plain text keeping
+// bullets and line breaks — the plain-text flavor drops Word list bullets entirely.
+function htmlClipboardToText(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+
+  function walk(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return (node.textContent ?? '').replace(/ /g, ' ').replace(/[\n\r\t]+/g, ' ')
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return ''
+    const el = node as Element
+    const tag = el.tagName.toLowerCase()
+    if (['style', 'script', 'meta', 'title', 'head'].includes(tag)) return ''
+    if (tag === 'br') return '\n'
+
+    const inner = Array.from(el.childNodes).map(walk).join('')
+
+    if (tag === 'li') return '• ' + inner.trim() + '\n'
+    if (tag === 'ul' || tag === 'ol') return inner + '\n'
+    if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'table'].includes(tag)) {
+      const t = inner.replace(/^[ ]+|[ ]+$/g, '')
+      if (!t.trim()) return '\n'
+      // Word marks list paragraphs with MsoListParagraph and puts ·/§/o as fake bullet
+      const cls = el.getAttribute('class') ?? ''
+      if (/MsoListParagraph/i.test(cls)) {
+        return '• ' + t.replace(/^[·•§o▪]\s*/, '').trim() + '\n'
+      }
+      return t + '\n\n'
+    }
+    return inner
+  }
+
+  return walk(doc.body)
+    .replace(/[ ]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 interface Props {
   userId: string
   ownerName?: string
@@ -443,10 +481,20 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                   <label className="field-label">Mensaje</label>
                   <textarea
                     className="input"
-                    rows={7}
+                    rows={12}
                     placeholder="Escribí tu mensaje…"
                     value={compose.body}
                     onChange={e => setCompose(c => ({ ...c, body: e.target.value }))}
+                    onPaste={e => {
+                      const html = e.clipboardData.getData('text/html')
+                      if (!html) return
+                      e.preventDefault()
+                      const text = htmlClipboardToText(html)
+                      const ta = e.currentTarget
+                      const start = ta.selectionStart
+                      const end   = ta.selectionEnd
+                      setCompose(c => ({ ...c, body: c.body.slice(0, start) + text + c.body.slice(end) }))
+                    }}
                     required
                     style={{ resize: 'vertical' }}
                   />
