@@ -30,6 +30,7 @@ const TIPO_STYLE: Record<HistorialTipo, { bg: string; color: string; label: stri
   NOTA:          { bg: 'var(--bg-panel)',       color: 'var(--text-muted)',   label: 'Nota'         },
   LLAMADA:       { bg: 'var(--success-soft)',  color: 'var(--success)',       label: 'Llamada'      },
   EMAIL:         { bg: 'var(--accent-soft)',   color: 'var(--accent)',        label: 'Email'        },
+  WHATSAPP:      { bg: 'oklch(92% 0.08 145)', color: 'oklch(42% 0.18 145)', label: 'WhatsApp'     },
 }
 
 const PERIOD_OPTIONS: { value: Period; label: string; group: 'corto' | 'historico' | 'custom' }[] = [
@@ -80,7 +81,7 @@ function fmtDateShort(d: Date) {
 // ─── Calculation helpers ──────────────────────────────────────────────────────
 interface KPIs {
   total: number; contactos: number; llamadas: number
-  emails: number; notas: number; cambios: number; asignaciones: number
+  emails: number; whatsapps: number; notas: number; cambios: number; asignaciones: number
 }
 function calcKPIs(regs: HistorialLead[]): KPIs {
   return {
@@ -88,6 +89,7 @@ function calcKPIs(regs: HistorialLead[]): KPIs {
     contactos:    new Set(regs.map(r => r.nombre)).size,
     llamadas:     regs.filter(r => r.tipo === 'LLAMADA').length,
     emails:       regs.filter(r => r.tipo === 'EMAIL').length,
+    whatsapps:    regs.filter(r => r.tipo === 'WHATSAPP').length,
     notas:        regs.filter(r => r.tipo === 'NOTA').length,
     cambios:      regs.filter(r => r.tipo === 'CAMBIO_ESTADO').length,
     asignaciones: regs.filter(r => r.tipo === 'ASIGNACION').length,
@@ -181,20 +183,21 @@ function calcContactFreq(regs: HistorialLead[]) {
 function calcEvolution(regs: HistorialLead[], cutoff: Date, ceiling: Date) {
   const end = new Date(Math.min(ceiling.getTime(), new Date().getTime()))
   const diffDays = Math.ceil((end.getTime() - cutoff.getTime()) / 86400000)
-  const map = new Map<string, { llamada: number; email: number; nota: number; otro: number }>()
+  const map = new Map<string, { llamada: number; email: number; whatsapp: number; nota: number; otro: number }>()
   const d = new Date(cutoff)
   while (d <= end) {
-    map.set(d.toISOString().slice(0, 10), { llamada: 0, email: 0, nota: 0, otro: 0 })
+    map.set(d.toISOString().slice(0, 10), { llamada: 0, email: 0, whatsapp: 0, nota: 0, otro: 0 })
     d.setDate(d.getDate() + 1)
   }
   regs.forEach(r => {
     const key = r.fecha.slice(0, 10)
     if (!map.has(key)) return
     const e = map.get(key)!
-    if      (r.tipo === 'LLAMADA') e.llamada++
-    else if (r.tipo === 'EMAIL')   e.email++
-    else if (r.tipo === 'NOTA')    e.nota++
-    else                           e.otro++
+    if      (r.tipo === 'LLAMADA')   e.llamada++
+    else if (r.tipo === 'EMAIL')     e.email++
+    else if (r.tipo === 'WHATSAPP')  e.whatsapp++
+    else if (r.tipo === 'NOTA')      e.nota++
+    else                             e.otro++
   })
   const interval = diffDays <= 14 ? 1 : diffDays <= 31 ? 2 : diffDays <= 90 ? 7 : 14
   let i = 0
@@ -202,7 +205,7 @@ function calcEvolution(regs: HistorialLead[], cutoff: Date, ceiling: Date) {
     const label = ++i % interval === 0 || i === 1
       ? new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
       : ''
-    return { label, date, ...c, total: c.llamada + c.email + c.nota + c.otro }
+    return { label, date, ...c, total: c.llamada + c.email + c.whatsapp + c.nota + c.otro }
   })
 }
 
@@ -261,10 +264,11 @@ function EvolucionChart({ regs, cutoff, ceiling, height = 110 }: { regs: Histori
     return (
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>{d?.date}</div>
-        {d?.llamada > 0 && <div style={{ color: 'var(--success)'  }}>📞 Llamadas: {d.llamada}</div>}
-        {d?.email   > 0 && <div style={{ color: 'var(--accent)'   }}>✉️ Emails: {d.email}</div>}
-        {d?.nota    > 0 && <div style={{ color: 'var(--text-muted)' }}>📝 Notas: {d.nota}</div>}
-        {d?.otro    > 0 && <div style={{ color: 'var(--info)'      }}>🔄 Otros: {d.otro}</div>}
+        {d?.llamada   > 0 && <div style={{ color: 'var(--success)'           }}>📞 Llamadas: {d.llamada}</div>}
+        {d?.email     > 0 && <div style={{ color: 'var(--accent)'             }}>✉️ Emails: {d.email}</div>}
+        {d?.whatsapp  > 0 && <div style={{ color: 'oklch(42% 0.18 145)'      }}>💬 WhatsApp: {d.whatsapp}</div>}
+        {d?.nota      > 0 && <div style={{ color: 'var(--text-muted)'         }}>📝 Notas: {d.nota}</div>}
+        {d?.otro      > 0 && <div style={{ color: 'var(--info)'               }}>🔄 Otros: {d.otro}</div>}
         <div style={{ fontWeight: 600, marginTop: 4 }}>Total: {d?.total}</div>
       </div>
     )
@@ -275,10 +279,11 @@ function EvolucionChart({ regs, cutoff, ceiling, height = 110 }: { regs: Histori
         <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-inset)' }} />
-        <Bar dataKey="llamada" stackId="a" fill="var(--success)"    radius={[0,0,0,0]} name="Llamadas" />
-        <Bar dataKey="email"   stackId="a" fill="var(--accent)"     radius={[0,0,0,0]} name="Emails"   />
-        <Bar dataKey="nota"    stackId="a" fill="var(--text-muted)" radius={[0,0,0,0]} name="Notas"    />
-        <Bar dataKey="otro"    stackId="a" fill="var(--info)"       radius={[3,3,0,0]} name="Otros"    />
+        <Bar dataKey="llamada"  stackId="a" fill="var(--success)"         radius={[0,0,0,0]} name="Llamadas"  />
+        <Bar dataKey="email"    stackId="a" fill="var(--accent)"           radius={[0,0,0,0]} name="Emails"    />
+        <Bar dataKey="whatsapp" stackId="a" fill="oklch(52% 0.18 145)"    radius={[0,0,0,0]} name="WhatsApp"  />
+        <Bar dataKey="nota"     stackId="a" fill="var(--text-muted)"       radius={[0,0,0,0]} name="Notas"     />
+        <Bar dataKey="otro"     stackId="a" fill="var(--info)"             radius={[3,3,0,0]} name="Otros"     />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -311,6 +316,7 @@ function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
             <th style={th}>Tasa cont. %</th>
             <th style={th}>Sin gestión</th>
             <th style={th}>Llamadas</th>
+            <th style={th}>WhatsApp</th>
             <th style={th}>Emails</th>
             <th style={th}>Cambios ↑</th>
             <th style={th}>Ganados</th>
@@ -348,8 +354,9 @@ function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
                 <td style={td}>
                   <SemBadge value={s.sinGestion} color={semaphoreColor(s.sinGestion, all('sinGestion'), false)} />
                 </td>
-                <td style={{ ...td, color: 'var(--success)', fontWeight: 500 }}>{s.kpis.llamadas}</td>
-                <td style={{ ...td, color: 'var(--accent)', fontWeight: 500 }}>{s.kpis.emails}</td>
+                <td style={{ ...td, color: 'var(--success)',          fontWeight: 500 }}>{s.kpis.llamadas}</td>
+                <td style={{ ...td, color: 'oklch(42% 0.18 145)',   fontWeight: 500 }}>{s.kpis.whatsapps}</td>
+                <td style={{ ...td, color: 'var(--accent)',          fontWeight: 500 }}>{s.kpis.emails}</td>
                 <td style={td}>{s.cambiosPos}</td>
                 <td style={{ ...td, color: 'var(--success)', fontWeight: 600 }}>{s.cierre.ganados}</td>
                 <td style={td}>
@@ -419,10 +426,11 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {kpis.llamadas > 0 && <span style={{ ...chipStyle, background: 'var(--success-soft)', color: 'var(--success)' }}>📞 {kpis.llamadas}</span>}
-          {kpis.emails   > 0 && <span style={{ ...chipStyle, background: 'var(--accent-soft)',  color: 'var(--accent)'  }}>✉️ {kpis.emails}</span>}
-          {sinGestionCount > 0 && <span style={{ ...chipStyle, background: 'var(--danger-soft)', color: 'var(--danger)' }}>⚠️ {sinGestionCount} sin gestión</span>}
-          {cierre.ganados > 0  && <span style={{ ...chipStyle, background: 'var(--success-soft)', color: 'var(--success)' }}>🏆 {cierre.ganados} ganados</span>}
+          {kpis.llamadas  > 0 && <span style={{ ...chipStyle, background: 'var(--success-soft)',    color: 'var(--success)'          }}>📞 {kpis.llamadas}</span>}
+          {kpis.emails    > 0 && <span style={{ ...chipStyle, background: 'var(--accent-soft)',     color: 'var(--accent)'           }}>✉️ {kpis.emails}</span>}
+          {kpis.whatsapps > 0 && <span style={{ ...chipStyle, background: 'oklch(92% 0.08 145)', color: 'oklch(42% 0.18 145)'    }}>💬 {kpis.whatsapps}</span>}
+          {sinGestionCount > 0 && <span style={{ ...chipStyle, background: 'var(--danger-soft)',    color: 'var(--danger)'           }}>⚠️ {sinGestionCount} sin gestión</span>}
+          {cierre.ganados  > 0 && <span style={{ ...chipStyle, background: 'var(--success-soft)',   color: 'var(--success)'          }}>🏆 {cierre.ganados} ganados</span>}
         </div>
         <Icon name="chev_down" size={14} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
       </div>
@@ -439,6 +447,7 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
               <KpiChip label="Follow-up %"       value={`${followUpRate}%`} color={semaphoreColor(followUpRate, allFup)} />
               <KpiChip label="Llamadas"          value={kpis.llamadas}   color="var(--success)" />
               <KpiChip label="Emails"            value={kpis.emails}     color="var(--accent)" />
+              <KpiChip label="WhatsApp"          value={kpis.whatsapps}  color="oklch(42% 0.18 145)" />
               <KpiChip label="Notas"             value={kpis.notas}      color="var(--text-muted)" />
               <KpiChip label="Cambios ↑ etapa"   value={cambiosPos}      color="var(--info)" />
               <KpiChip label="Asignaciones"      value={kpis.asignaciones} color="oklch(48% 0.15 75)" />
@@ -474,11 +483,12 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>VS. PERÍODO ANTERIOR</div>
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13 }}>
               {[
-                ['Acciones',   kpis.total,      prevKpis.total],
-                ['Llamadas',   kpis.llamadas,   prevKpis.llamadas],
-                ['Emails',     kpis.emails,     prevKpis.emails],
-                ['Notas',      kpis.notas,      prevKpis.notas],
-                ['Contactos',  kpis.contactos,  prevKpis.contactos],
+                ['Acciones',   kpis.total,       prevKpis.total],
+                ['Llamadas',   kpis.llamadas,    prevKpis.llamadas],
+                ['Emails',     kpis.emails,      prevKpis.emails],
+                ['WhatsApp',   kpis.whatsapps,   prevKpis.whatsapps],
+                ['Notas',      kpis.notas,       prevKpis.notas],
+                ['Contactos',  kpis.contactos,   prevKpis.contactos],
               ].map(([label, cur, prev]) => (
                 <div key={label as string} style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{label}</span>
@@ -607,9 +617,10 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
           {tab === 'evolucion' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)', display: 'inline-block' }} /> Llamadas</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent)', display: 'inline-block' }} /> Emails</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-muted)', display: 'inline-block' }} /> Notas</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)',          display: 'inline-block' }} /> Llamadas</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--accent)',            display: 'inline-block' }} /> Emails</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'oklch(52% 0.18 145)',     display: 'inline-block' }} /> WhatsApp</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-muted)',        display: 'inline-block' }} /> Notas</span>
               </div>
               <EvolucionChart regs={regs} cutoff={cutoff} ceiling={ceiling} height={130} />
             </div>
@@ -777,7 +788,7 @@ export default function GestionClient({ registros: init, members, contacts, deal
       Vendedor: s.vendorName, 'Total acciones': s.kpis.total, 'Días activos': s.diasActivos,
       'Follow-up %': s.followUpRate, 'Tasa contactación %': s.tasa.tasa, 'Cartera asignada': s.tasa.cartera,
       'Sin gestión': s.sinGestion, 'Nuevos gestionados': s.nuevosGest, Llamadas: s.kpis.llamadas,
-      Emails: s.kpis.emails, Notas: s.kpis.notas, 'Cambios ↑ etapa': s.cambiosPos,
+      WhatsApp: s.kpis.whatsapps, Emails: s.kpis.emails, Notas: s.kpis.notas, 'Cambios ↑ etapa': s.cambiosPos,
       Ganados: s.cierre.ganados, Perdidos: s.cierre.perdidos, 'Tasa cierre %': s.cierre.tasa,
       'Pipeline activo': s.valorPipeline, 'Vel. primer contacto (días)': s.velocidad ?? '',
       'Acciones período ant.': s.prevKpis.total,
@@ -892,8 +903,9 @@ export default function GestionClient({ registros: init, members, contacts, deal
                 <KpiChip label="Vendedores"       value={vendorStats.length}     color="var(--text)" />
                 <KpiChip label="Total acciones"   value={globalKPIs.total}        color="var(--accent)" />
                 <KpiChip label="Contactos únicos" value={globalKPIs.contactos}    color="var(--info)" />
-                <KpiChip label="Llamadas"         value={globalKPIs.llamadas}     color="var(--success)" />
-                <KpiChip label="Emails"           value={globalKPIs.emails}       color="oklch(65% 0.14 260)" />
+                <KpiChip label="Llamadas"         value={globalKPIs.llamadas}    color="var(--success)" />
+                <KpiChip label="WhatsApp"         value={globalKPIs.whatsapps}   color="oklch(42% 0.18 145)" />
+                <KpiChip label="Emails"           value={globalKPIs.emails}      color="oklch(65% 0.14 260)" />
                 <KpiChip label="Notas"            value={globalKPIs.notas}        color="var(--text-muted)" />
                 <KpiChip label="Cambios ↑"        value={vendorStats.reduce((s, v) => s + v.cambiosPos, 0)} color="var(--info)" />
                 <KpiChip label="Ganados"          value={vendorStats.reduce((s, v) => s + v.cierre.ganados, 0)} color="var(--success)" />
@@ -937,7 +949,7 @@ export default function GestionClient({ registros: init, members, contacts, deal
               <div className="card" style={{ padding: '16px 20px' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Actividad total del equipo — {periodLabel}</div>
                 <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-                  {[['var(--success)', 'Llamadas'], ['var(--accent)', 'Emails'], ['var(--text-muted)', 'Notas'], ['var(--info)', 'Otros']].map(([color, label]) => (
+                  {[['var(--success)', 'Llamadas'], ['var(--accent)', 'Emails'], ['oklch(52% 0.18 145)', 'WhatsApp'], ['var(--text-muted)', 'Notas'], ['var(--info)', 'Otros']].map(([color, label]) => (
                     <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} /> {label}</span>
                   ))}
                 </div>

@@ -163,6 +163,26 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
     setNoteText('')
   }
 
+  async function registerWhatsApp() {
+    const now = new Date().toISOString()
+    const { data: act } = await supabase.from('activities').insert({
+      user_id: userId, kind: 'whatsapp_out', who: 'tú', body: `WhatsApp a ${contact.name}`, contact_id: contact.id,
+    }).select().single()
+    if (act) setActivities(as => [act as Activity, ...as])
+    await supabase.from('historial_leads').insert({
+      user_id:        userId,
+      fecha:          now,
+      nombre:         contact.name,
+      numero:         contact.phone ?? null,
+      tipo:           'WHATSAPP',
+      mensaje:        'WhatsApp enviado',
+      etapa_anterior: contact.status,
+      etapa_nueva:    contact.status,
+      vendedor:       contact.owner_name ?? null,
+      contact_id:     contact.id,
+    })
+  }
+
   async function registerCall() {
     const now = new Date().toISOString()
     const { data: act } = await supabase.from('activities').insert({
@@ -312,7 +332,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                     href={`https://wa.me/${contact.phone.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={() => setShowPhoneMenu(false)}
+                    onClick={async () => { setShowPhoneMenu(false); await registerWhatsApp() }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <Icon name="whatsapp" size={12} /> WhatsApp

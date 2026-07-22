@@ -127,7 +127,7 @@ export interface TeamMember {
   joined_label: string | null
 }
 
-export type HistorialTipo = 'ASIGNACION' | 'CAMBIO_ESTADO' | 'NOTA' | 'LLAMADA' | 'EMAIL'
+export type HistorialTipo = 'ASIGNACION' | 'CAMBIO_ESTADO' | 'NOTA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP'
 
 export interface HistorialLead {
   id: string

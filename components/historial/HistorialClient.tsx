@@ -3,14 +3,15 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Icon from '@/components/ui/Icon'
 import type { HistorialLead, HistorialTipo } from '@/lib/types'
 
-const TIPOS: HistorialTipo[] = ['ASIGNACION', 'CAMBIO_ESTADO', 'NOTA', 'LLAMADA', 'EMAIL']
+const TIPOS: HistorialTipo[] = ['ASIGNACION', 'CAMBIO_ESTADO', 'NOTA', 'LLAMADA', 'EMAIL', 'WHATSAPP']
 
 const TIPO_STYLE: Record<HistorialTipo, { bg: string; color: string }> = {
-  ASIGNACION:    { bg: 'var(--warning-soft)',  color: 'oklch(48% 0.15 75)' },
-  CAMBIO_ESTADO: { bg: 'var(--info-soft)',     color: 'var(--info)' },
-  NOTA:          { bg: 'var(--bg-panel)',       color: 'var(--text-muted)' },
-  LLAMADA:       { bg: 'var(--success-soft)',  color: 'var(--success)' },
-  EMAIL:         { bg: 'var(--accent-soft)',   color: 'var(--accent)' },
+  ASIGNACION:    { bg: 'var(--warning-soft)',  color: 'oklch(48% 0.15 75)'  },
+  CAMBIO_ESTADO: { bg: 'var(--info-soft)',     color: 'var(--info)'          },
+  NOTA:          { bg: 'var(--bg-panel)',       color: 'var(--text-muted)'   },
+  LLAMADA:       { bg: 'var(--success-soft)',  color: 'var(--success)'       },
+  EMAIL:         { bg: 'var(--accent-soft)',   color: 'var(--accent)'        },
+  WHATSAPP:      { bg: 'oklch(92% 0.08 145)', color: 'oklch(42% 0.18 145)' },
 }
 
 export default function HistorialClient({ registros }: { registros: HistorialLead[] }) {
