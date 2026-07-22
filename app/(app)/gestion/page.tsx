@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getWorkspaceOwnerId } from '@/lib/supabase/workspace'
 import Topbar from '@/components/layout/Topbar'
 import GestionClient from '@/components/gestion/GestionClient'
-import type { TeamMember, HistorialLead } from '@/lib/types'
+import type { TeamMember, HistorialLead, Contact, Deal } from '@/lib/types'
 
 export default async function GestionPage() {
   const supabase = createClient()
@@ -18,43 +18,33 @@ export default async function GestionPage() {
   const sinceISO = since.toISOString()
 
   let registros: HistorialLead[] = []
-  let members: TeamMember[] = []
+  let members:   TeamMember[]    = []
+  let contacts:  Contact[]       = []
+  let deals:     Deal[]          = []
 
   if (isOwner) {
-    const [{ data: hist }, { data: team }] = await Promise.all([
-      supabase
-        .from('historial_leads')
-        .select('*')
-        .eq('user_id', workspaceId)
-        .gte('fecha', sinceISO)
-        .order('fecha', { ascending: false }),
-      supabase
-        .from('team_members')
-        .select('*')
-        .eq('owner_id', workspaceId)
-        .eq('status', 'activo')
-        .order('name'),
+    const [{ data: hist }, { data: team }, { data: cont }, { data: dealsData }] = await Promise.all([
+      supabase.from('historial_leads').select('*').eq('user_id', workspaceId).gte('fecha', sinceISO).order('fecha', { ascending: false }),
+      supabase.from('team_members').select('*').eq('owner_id', workspaceId).eq('status', 'activo').order('name'),
+      supabase.from('contacts').select('*').eq('user_id', workspaceId),
+      supabase.from('deals').select('*').eq('user_id', workspaceId),
     ])
-    registros = (hist as HistorialLead[]) ?? []
-    members   = (team as TeamMember[])   ?? []
+    registros = (hist      as HistorialLead[]) ?? []
+    members   = (team      as TeamMember[])    ?? []
+    contacts  = (cont      as Contact[])       ?? []
+    deals     = (dealsData as Deal[])          ?? []
   } else {
-    // Vendor: scope to their assigned contacts
-    const { data: myContacts } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('user_id', workspaceId)
-
-    const contactIds = (myContacts ?? []).map((c: { id: string }) => c.id)
+    const { data: myContacts } = await supabase.from('contacts').select('*').eq('user_id', workspaceId)
+    contacts = (myContacts as Contact[]) ?? []
+    const contactIds = contacts.map(c => c.id)
 
     if (contactIds.length > 0) {
-      const { data: hist } = await supabase
-        .from('historial_leads')
-        .select('*')
-        .eq('user_id', workspaceId)
-        .in('contact_id', contactIds)
-        .gte('fecha', sinceISO)
-        .order('fecha', { ascending: false })
-      registros = (hist as HistorialLead[]) ?? []
+      const [{ data: hist }, { data: dealsData }] = await Promise.all([
+        supabase.from('historial_leads').select('*').eq('user_id', workspaceId).in('contact_id', contactIds).gte('fecha', sinceISO).order('fecha', { ascending: false }),
+        supabase.from('deals').select('*').eq('user_id', workspaceId).eq('assigned_to', user.id),
+      ])
+      registros = (hist      as HistorialLead[]) ?? []
+      deals     = (dealsData as Deal[])          ?? []
     }
   }
 
@@ -65,6 +55,8 @@ export default async function GestionPage() {
         <GestionClient
           registros={registros}
           members={members}
+          contacts={contacts}
+          deals={deals}
           isOwner={isOwner}
           userId={workspaceId}
           currentUserId={user.id}
