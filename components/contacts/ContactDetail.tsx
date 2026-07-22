@@ -143,11 +143,44 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
   async function addNote(e: React.FormEvent) {
     e.preventDefault()
     if (!noteText.trim()) return
+    const now = new Date().toISOString()
     const { data: act } = await supabase.from('activities').insert({
       user_id: userId, kind: 'note', who: 'tú', body: noteText, contact_id: contact.id,
     }).select().single()
     if (act) setActivities(as => [act as Activity, ...as])
+    await supabase.from('historial_leads').insert({
+      user_id:        userId,
+      fecha:          now,
+      nombre:         contact.name,
+      numero:         contact.phone ?? null,
+      tipo:           'NOTA',
+      mensaje:        noteText.slice(0, 300),
+      etapa_anterior: contact.status,
+      etapa_nueva:    contact.status,
+      vendedor:       contact.owner_name ?? null,
+      contact_id:     contact.id,
+    })
     setNoteText('')
+  }
+
+  async function registerCall() {
+    const now = new Date().toISOString()
+    const { data: act } = await supabase.from('activities').insert({
+      user_id: userId, kind: 'call_out', who: 'tú', body: `Llamada a ${contact.name}`, contact_id: contact.id,
+    }).select().single()
+    if (act) setActivities(as => [act as Activity, ...as])
+    await supabase.from('historial_leads').insert({
+      user_id:        userId,
+      fecha:          now,
+      nombre:         contact.name,
+      numero:         contact.phone ?? null,
+      tipo:           'LLAMADA',
+      mensaje:        `Llamada registrada`,
+      etapa_anterior: contact.status,
+      etapa_nueva:    contact.status,
+      vendedor:       contact.owner_name ?? null,
+      contact_id:     contact.id,
+    })
   }
 
   async function addTask(e: React.FormEvent) {
@@ -177,12 +210,25 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       setSendError(data.error ?? 'Error al enviar')
       return
     }
+    const sentAt = new Date().toISOString()
     const act: Activity = {
-      id: crypto.randomUUID(), created_at: new Date().toISOString(),
+      id: crypto.randomUUID(), created_at: sentAt,
       user_id: userId, kind: 'email_out', who: 'tú',
       body: compose.subject, contact_id: contact.id, deal_id: null,
     }
     setActivities(as => [act, ...as])
+    await supabase.from('historial_leads').insert({
+      user_id:        userId,
+      fecha:          sentAt,
+      nombre:         contact.name,
+      numero:         contact.phone ?? null,
+      tipo:           'EMAIL',
+      mensaje:        compose.subject,
+      etapa_anterior: contact.status,
+      etapa_nueva:    contact.status,
+      vendedor:       contact.owner_name ?? null,
+      contact_id:     contact.id,
+    })
     setCompose({ subject: '', body: '' })
     setShowCompose(false)
   }
@@ -254,10 +300,10 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                 {contact.phone}
               </button>
               {showPhoneMenu && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                   <a
                     href={`tel:${contact.phone}`}
-                    onClick={() => setShowPhoneMenu(false)}
+                    onClick={async () => { setShowPhoneMenu(false); await registerCall() }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--text)', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <Icon name="phone" size={12} /> Llamar
@@ -271,6 +317,12 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                   >
                     <Icon name="whatsapp" size={12} /> WhatsApp
                   </a>
+                  <button
+                    onClick={async () => { setShowPhoneMenu(false); await registerCall() }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--success-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', cursor: 'pointer' }}
+                  >
+                    <Icon name="check" size={12} /> Registrar llamada
+                  </button>
                 </div>
               )}
             </div>
