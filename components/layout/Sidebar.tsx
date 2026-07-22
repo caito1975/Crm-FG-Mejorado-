@@ -47,6 +47,7 @@ export default function Sidebar({
     { id: 'reports',   label: 'Reportes',           icon: 'reports',   href: '/reports' },
     { id: 'inbox',     label: 'Inbox',              icon: 'inbox',     href: '/inbox',     count: inboxCount },
     ...(isOwner ? [{ id: 'team', label: 'Equipo',  icon: 'team',      href: '/team',      count: teamCount }] : []),
+    { id: 'gestion',   label: 'Gestión Vendedores', icon: 'reports',   href: '/gestion' },
     { id: 'historial', label: 'Historial de Leads', icon: 'clock',     href: '/historial' },
   ]
 
