@@ -12,9 +12,9 @@ export default async function GestionPage() {
 
   const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
 
-  // Load last 31 days to cover hoy / semana / mes
+  // Load last 400 days — covers hoy/semana/mes/trimestre/semestre/año/año anterior
   const since = new Date()
-  since.setDate(since.getDate() - 31)
+  since.setDate(since.getDate() - 400)
   const sinceISO = since.toISOString()
 
   let registros: HistorialLead[] = []
