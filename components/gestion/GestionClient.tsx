@@ -836,6 +836,16 @@ export default function GestionClient({ registros: init, members, contacts, deal
         </div>
       </div>
 
+      {/* Tracking start notice */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: 'var(--info-soft)', border: '1px solid var(--info)', borderRadius: 'var(--r-md)', fontSize: 12.5, color: 'var(--info)', marginBottom: 4 }}>
+        <span style={{ fontSize: 16, lineHeight: 1.3, flexShrink: 0 }}>ℹ️</span>
+        <span>
+          <strong>Seguimiento iniciado el 22/07/2026.</strong>{' '}
+          Llamadas, emails, WhatsApp y notas se registran automáticamente a partir de esta fecha.
+          Los períodos anteriores no tienen datos.
+        </span>
+      </div>
+
       {/* Controls */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
