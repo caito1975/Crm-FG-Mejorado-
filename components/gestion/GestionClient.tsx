@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import type { TeamMember, HistorialLead, HistorialTipo } from '@/lib/types'
+import * as XLSX from 'xlsx'
 
 type Period = 'hoy' | 'semana' | 'mes'
 type View   = 'resumen' | 'detalle' | 'contactos'
@@ -485,6 +486,63 @@ export default function GestionClient({ registros, members, isOwner }: Props) {
     period === 'semana' ? `Esta semana (desde el ${fmtDateShort(cutoff.toISOString())})` :
                           `Este mes — ${now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
 
+  function exportExcel() {
+    const wb = XLSX.utils.book_new()
+
+    // ── Hoja 1: Resumen por vendedor ──
+    const resumenRows = Array.from(byVendor.entries()).map(([vendorName, regs]) => {
+      const k = calcKPIs(regs)
+      const freq = calcContactFreq(regs)
+      return {
+        Vendedor:           vendorName,
+        'Total acciones':   k.total,
+        'Contactos únicos': k.contactos,
+        Llamadas:           k.llamadas,
+        Emails:             k.emails,
+        Notas:              k.notas,
+        'Cambios de etapa': k.cambios,
+        Asignaciones:       k.asignaciones,
+        'Contacto más gestionado': freq[0]?.nombre ?? '',
+        'Veces contactado (max)':  freq[0]?.count  ?? 0,
+      }
+    })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumenRows), 'Resumen vendedores')
+
+    // ── Hoja 2: Detalle cronológico ──
+    const detalleRows = filtered.map(r => ({
+      Fecha:             r.fecha ? new Date(r.fecha).toLocaleString('es-AR', { hour12: false }) : '',
+      Vendedor:          r.vendedor ?? '',
+      Contacto:          r.nombre,
+      Teléfono:          r.numero ?? '',
+      Tipo:              TIPO_STYLE[r.tipo]?.label ?? r.tipo,
+      'Acción / Mensaje': r.mensaje ?? '',
+      'Etapa anterior':  r.etapa_anterior ?? '',
+      'Etapa nueva':     r.etapa_nueva ?? '',
+      Notas:             r.notas ?? '',
+    }))
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalleRows), 'Detalle cronológico')
+
+    // ── Hoja 3: Frecuencia por contacto ──
+    const freqRows: object[] = []
+    byVendor.forEach((regs, vendorName) => {
+      calcContactFreq(regs).forEach(cf => {
+        freqRows.push({
+          Vendedor:              vendorName,
+          Contacto:              cf.nombre,
+          Teléfono:              cf.numero ?? '',
+          'Veces contactado':    cf.count,
+          'Último contacto':     cf.lastDate ? new Date(cf.lastDate).toLocaleString('es-AR', { hour12: false }) : '',
+          'Tipos de interacción': Array.from(cf.tipos).map(t => TIPO_STYLE[t]?.label ?? t).join(', '),
+        })
+      })
+    })
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(freqRows), 'Frecuencia contactos')
+
+    const periodSlug = period === 'hoy' ? 'hoy' : period === 'semana' ? 'semana' : 'mes'
+    const dateSlug   = now.toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `gestion_vendedores_${periodSlug}_${dateSlug}.xlsx`)
+  }
+
   return (
     <div className="page">
       <div className="page-head">
@@ -536,6 +594,16 @@ export default function GestionClient({ registros, members, isOwner }: Props) {
         <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 'auto' }}>
           {filtered.length} registros · {globalKPIs.contactos} contactos
         </span>
+
+        <button
+          onClick={exportExcel}
+          disabled={filtered.length === 0}
+          className="btn secondary sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Icon name="doc" size={14} />
+          Exportar Excel
+        </button>
       </div>
 
       {/* Global KPIs (owner, todos) */}
