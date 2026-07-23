@@ -90,6 +90,8 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [showCompose, setShowCompose]   = useState(false)
   const [showPhoneMenu, setShowPhoneMenu] = useState(false)
+  const [showWaModal, setShowWaModal]   = useState(false)
+  const [waMessage, setWaMessage]       = useState('')
   const [compose, setCompose]           = useState({ subject: '', body: '' })
   const [sendingEmail, setSendingEmail] = useState(false)
   const [sendError, setSendError]       = useState('')
@@ -163,10 +165,10 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
     setNoteText('')
   }
 
-  async function registerWhatsApp() {
+  async function registerWhatsApp(msg: string) {
     const now = new Date().toISOString()
     const { data: act } = await supabase.from('activities').insert({
-      user_id: userId, kind: 'whatsapp_out', who: 'tú', body: `WhatsApp a ${contact.name}`, contact_id: contact.id,
+      user_id: userId, kind: 'whatsapp_out', who: 'tú', body: msg || `WhatsApp a ${contact.name}`, contact_id: contact.id,
     }).select().single()
     if (act) setActivities(as => [act as Activity, ...as])
     await supabase.from('historial_leads').insert({
@@ -175,12 +177,25 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       nombre:         contact.name,
       numero:         contact.phone ?? null,
       tipo:           'WHATSAPP',
-      mensaje:        'WhatsApp enviado',
+      mensaje:        msg || 'WhatsApp enviado',
       etapa_anterior: contact.status,
       etapa_nueva:    contact.status,
       vendedor:       contact.owner_name ?? null,
       contact_id:     contact.id,
     })
+  }
+
+  async function handleWaSend() {
+    const msg = waMessage.trim()
+    const phone = contact.phone!.replace(/\D/g, '')
+    const url = msg
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/${phone}`
+    setShowWaModal(false)
+    setShowPhoneMenu(false)
+    setWaMessage('')
+    window.open(url, '_blank')
+    await registerWhatsApp(msg)
   }
 
   async function registerCall() {
@@ -328,15 +343,12 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                   >
                     <Icon name="phone" size={12} /> Llamar
                   </a>
-                  <a
-                    href={`https://wa.me/${contact.phone.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={async () => { setShowPhoneMenu(false); await registerWhatsApp() }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', textDecoration: 'none', cursor: 'pointer' }}
+                  <button
+                    onClick={() => { setShowPhoneMenu(false); setShowWaModal(true) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', cursor: 'pointer' }}
                   >
                     <Icon name="whatsapp" size={12} /> WhatsApp
-                  </a>
+                  </button>
                   <button
                     onClick={async () => { setShowPhoneMenu(false); await registerCall() }}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'var(--success-soft)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--success)', cursor: 'pointer' }}
@@ -519,6 +531,45 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
           ownerId={userId}
           ownerName={ownerName}
         />
+      )}
+
+      {showWaModal && (
+        <div className="modal-backdrop" onClick={() => { setShowWaModal(false); setWaMessage('') }}>
+          <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="whatsapp" size={16} /> WhatsApp a {contact.name}
+              </h3>
+              <button className="btn ghost sm icon" onClick={() => { setShowWaModal(false); setWaMessage('') }}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="field-label">Para</label>
+                <input className="input" value={contact.phone ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
+              </div>
+              <div>
+                <label className="field-label">Mensaje <span style={{ color: 'var(--text-subtle)', fontWeight: 400 }}>(opcional — se pre-carga en WhatsApp y queda registrado)</span></label>
+                <textarea
+                  className="input"
+                  rows={5}
+                  placeholder="Escribí tu mensaje…"
+                  value={waMessage}
+                  onChange={e => setWaMessage(e.target.value)}
+                  autoFocus
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={() => { setShowWaModal(false); setWaMessage('') }}>Cancelar</button>
+              <button type="button" className="btn primary" onClick={handleWaSend} style={{ gap: 6 }}>
+                <Icon name="whatsapp" size={13} /> Abrir WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showCompose && (
