@@ -926,20 +926,25 @@ export default function GestionClient({ registros: init, members, contacts, deal
   }, [allData, members])
 
   // Fallback: when historial_leads.vendedor is null, resolve from the contact.
-  // Some contacts have owner_name=null but assigned_to set — handle both cases.
+  // Use team_members (member_user_id → name) as the authoritative source so even
+  // contacts where owner_name=null but assigned_to is set get attributed correctly.
   const contactOwnerMap = useMemo(() => {
-    // Build assigned_to (auth uid) → vendor name from contacts that have both fields
-    const byAssignedTo = new Map<string, string>()
-    contacts.forEach(c => { if (c.assigned_to && c.owner_name) byAssignedTo.set(c.assigned_to, c.owner_name) })
+    // team_members has member_user_id in DB data even if not in TS type
+    const memberByAuthId = new Map<string, string>()
+    members.forEach(m => {
+      const uid = (m as any).member_user_id as string | null
+      if (uid && m.name) memberByAuthId.set(uid, m.name)
+    })
 
-    const m = new Map<string, string>()
+    const map = new Map<string, string>()
     contacts.forEach(c => {
       if (!c.id) return
-      const name = c.owner_name || (c.assigned_to ? byAssignedTo.get(c.assigned_to) : null)
-      if (name) m.set(c.id, name)
+      const name = c.owner_name
+        || (c.assigned_to ? memberByAuthId.get(c.assigned_to) : null)
+      if (name) map.set(c.id, name)
     })
-    return m
-  }, [contacts])
+    return map
+  }, [contacts, members])
 
   const resolveV = (r: HistorialLead) =>
     r.vendedor || (r.contact_id ? contactOwnerMap.get(r.contact_id) ?? null : null)
