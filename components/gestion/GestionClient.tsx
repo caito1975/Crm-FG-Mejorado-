@@ -925,19 +925,43 @@ export default function GestionClient({ registros: init, members, contacts, deal
     const s = new Set<string>(); allData.forEach(r => { if (r.vendedor) s.add(r.vendedor) }); return Array.from(s).sort()
   }, [allData, members])
 
-  const filtered = useMemo(() => selectedVendor === 'todos' ? periodRegs : periodRegs.filter(r => r.vendedor === selectedVendor), [periodRegs, selectedVendor])
-  const prevFiltered = useMemo(() => selectedVendor === 'todos' ? prevRegs : prevRegs.filter(r => r.vendedor === selectedVendor), [prevRegs, selectedVendor])
+  // Fallback: when historial_leads.vendedor is null (n8n records, old entries),
+  // resolve the vendor from the contact's current owner_name
+  const contactOwnerMap = useMemo(() => {
+    const m = new Map<string, string>()
+    contacts.forEach(c => { if (c.id && c.owner_name) m.set(c.id, c.owner_name) })
+    return m
+  }, [contacts])
+
+  const resolveV = (r: HistorialLead) =>
+    r.vendedor || (r.contact_id ? contactOwnerMap.get(r.contact_id) ?? null : null)
+
+  const filtered = useMemo(() => selectedVendor === 'todos'
+    ? periodRegs
+    : periodRegs.filter(r => resolveV(r) === selectedVendor),
+  [periodRegs, selectedVendor, contactOwnerMap])
+
+  const prevFiltered = useMemo(() => selectedVendor === 'todos'
+    ? prevRegs
+    : prevRegs.filter(r => resolveV(r) === selectedVendor),
+  [prevRegs, selectedVendor, contactOwnerMap])
 
   const byVendor = useMemo(() => {
     const map = new Map<string, HistorialLead[]>()
     const list = selectedVendor === 'todos' ? allVendors : [selectedVendor]
     list.forEach(v => map.set(v, []))
-    filtered.forEach(r => { const v = r.vendedor || '(Sin asignar)'; if (!map.has(v)) map.set(v, []); map.get(v)!.push(r) })
+    filtered.forEach(r => {
+      const v = resolveV(r) || '(Sin asignar)'
+      if (!map.has(v)) map.set(v, [])
+      map.get(v)!.push(r)
+    })
     return map
-  }, [filtered, allVendors, selectedVendor])
+  }, [filtered, allVendors, selectedVendor, contactOwnerMap])
 
   const vendorStats: VStats[] = useMemo(() => Array.from(byVendor.entries()).map(([vendorName, regs]) => {
-    const prev = selectedVendor === 'todos' ? prevRegs.filter(r => r.vendedor === vendorName) : prevFiltered
+    const prev = selectedVendor === 'todos'
+      ? prevRegs.filter(r => (resolveV(r) ?? null) === vendorName)
+      : prevFiltered
     return {
       vendorName, regs,
       kpis:          calcKPIs(regs),
@@ -954,7 +978,7 @@ export default function GestionClient({ registros: init, members, contacts, deal
       prevDias:      calcDiasActivos(prev),
       prevFollowUp:  calcFollowUpRate(prev),
     }
-  }), [byVendor, prevRegs, prevFiltered, contacts, deals, cutoff, selectedVendor])
+  }), [byVendor, prevRegs, prevFiltered, contacts, deals, cutoff, selectedVendor, contactOwnerMap])
 
   const globalKPIs      = useMemo(() => calcKPIs(filtered), [filtered])
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
