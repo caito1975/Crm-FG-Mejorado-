@@ -57,12 +57,22 @@ export async function GET(req: NextRequest) {
     const userInfo = await userInfoRes.json()
 
     const supabase = createServiceClient()
+
+    // Preserve existing refresh_token if Google doesn't return a new one
+    // (can happen on re-auth even with prompt=consent in some edge cases)
+    let refreshToken = tokens.refresh_token ?? null
+    if (!refreshToken) {
+      const { data: existing } = await supabase.from('integrations')
+        .select('refresh_token').eq('user_id', userId).eq('provider', provider).single()
+      refreshToken = existing?.refresh_token ?? null
+    }
+
     const { error: upsertError } = await supabase.from('integrations').upsert(
       {
         user_id:       userId,
         provider,
         access_token:  tokens.access_token,
-        refresh_token: tokens.refresh_token ?? null,
+        refresh_token: refreshToken,
         token_expiry:  new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
         email:         userInfo.email ?? null,
         connected_at:  new Date().toISOString(),

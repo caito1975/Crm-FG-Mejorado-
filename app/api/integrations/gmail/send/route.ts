@@ -148,11 +148,12 @@ export async function POST(req: NextRequest) {
 
   if (sendRes.status === 401) {
     if (!integration.refresh_token) {
-      return NextResponse.json({ error: 'Token expirado. Reconectá Gmail en Configuración.' }, { status: 401 })
+      return NextResponse.json({ error: 'Gmail desconectado. Reconectá tu cuenta en Configuración → Integraciones.' }, { status: 401 })
     }
     const refreshed = await refreshAccessToken(integration)
     if (!refreshed.access_token) {
-      return NextResponse.json({ error: 'Token expirado. Reconectá Gmail en Configuración.' }, { status: 401 })
+      console.error('[gmail/send] refresh failed:', refreshed)
+      return NextResponse.json({ error: 'Sesión de Gmail vencida. Entrá a Configuración → Integraciones → desconectá y volvé a conectar Gmail.' }, { status: 401 })
     }
     accessToken = refreshed.access_token
     const service = createServiceClient()
