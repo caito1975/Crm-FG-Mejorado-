@@ -179,7 +179,7 @@ export default function HistorialClient({ registros }: { registros: HistorialLea
                       {h.tipo}
                     </span>
                   </td>
-                  <td style={{ fontSize: 13, maxWidth: 280, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{h.mensaje ?? ''}</td>
+                  <td style={{ fontSize: 13, maxWidth: 280, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{h.mensaje ?? ''}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-muted)' }}>
                     {h.etapa_anterior ?? '—'}
                   </td>
