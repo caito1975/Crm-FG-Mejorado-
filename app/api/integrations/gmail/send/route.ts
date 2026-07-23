@@ -108,6 +108,14 @@ function buildMimeMessage(from: string, to: string, subject: string, body: strin
     .replace(/=+$/, '')
 }
 
+async function trySend(accessToken: string, raw: string) {
+  return fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ raw }),
+  })
+}
+
 export async function POST(req: NextRequest) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -129,9 +137,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Gmail no conectado. Conectá tu cuenta en Configuración → Integraciones.' }, { status: 400 })
   }
 
-  // Refresh token if expired
+  const displayName = user.user_metadata?.crm_display_name || user.user_metadata?.full_name || ''
+  const senderEmail = user.user_metadata?.crm_sender_email || integration.email
+  const fromField   = displayName ? `${encodeRfc2047(displayName)} <${senderEmail}>` : senderEmail
+  const raw = buildMimeMessage(fromField, to, subject, body)
+
+  // Try with current token first; refresh only if Google returns 401
   let accessToken = integration.access_token
-  if (new Date(integration.token_expiry) <= new Date()) {
+  let sendRes = await trySend(accessToken, raw)
+
+  if (sendRes.status === 401) {
+    if (!integration.refresh_token) {
+      return NextResponse.json({ error: 'Token expirado. Reconectá Gmail en Configuración.' }, { status: 401 })
+    }
     const refreshed = await refreshAccessToken(integration)
     if (!refreshed.access_token) {
       return NextResponse.json({ error: 'Token expirado. Reconectá Gmail en Configuración.' }, { status: 401 })
@@ -142,18 +160,8 @@ export async function POST(req: NextRequest) {
       access_token: accessToken,
       token_expiry: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
     }).eq('id', integration.id)
+    sendRes = await trySend(accessToken, raw)
   }
-
-  const displayName   = user.user_metadata?.crm_display_name || user.user_metadata?.full_name || ''
-  const senderEmail   = user.user_metadata?.crm_sender_email || integration.email
-  const fromField     = displayName ? `${encodeRfc2047(displayName)} <${senderEmail}>` : senderEmail
-  const raw = buildMimeMessage(fromField, to, subject, body)
-
-  const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ raw }),
-  })
 
   if (!sendRes.ok) {
     const err = await sendRes.json()
