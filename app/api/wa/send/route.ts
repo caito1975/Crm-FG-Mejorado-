@@ -32,8 +32,20 @@ export async function POST(req: NextRequest) {
   })
 
   if (!evoRes.ok) {
-    const err = await evoRes.text()
-    return NextResponse.json({ error: `Evolution API: ${err}` }, { status: 500 })
+    const errText = await evoRes.text()
+    let friendlyError = 'Error al enviar WhatsApp.'
+    try {
+      const errJson = JSON.parse(errText)
+      const msg = errJson?.response?.message ?? errJson?.error ?? ''
+      if (/connection closed/i.test(msg) || /closed/i.test(msg)) {
+        friendlyError = 'WhatsApp desconectado. Reconectá la instancia en el panel de Evolution API.'
+      } else if (/not found/i.test(msg) || /instance/i.test(msg)) {
+        friendlyError = 'Instancia de WhatsApp no encontrada. Verificá la configuración.'
+      } else if (msg) {
+        friendlyError = msg
+      }
+    } catch { /* errText is not JSON */ }
+    return NextResponse.json({ error: friendlyError }, { status: 500 })
   }
 
   const senderWa = user.user_metadata?.crm_wa || EVO_INSTANCE
