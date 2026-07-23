@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
 import { createClient } from '@/lib/supabase/client'
-import type { TeamMember, HistorialLead, HistorialTipo, Contact, Deal } from '@/lib/types'
+import type { TeamMember, HistorialLead, HistorialTipo, Contact, Deal, SalesTarget } from '@/lib/types'
 import { formatCurrency } from '@/lib/types'
 import * as XLSX from 'xlsx'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -18,6 +18,7 @@ interface Props {
   members:       TeamMember[]
   contacts:      Contact[]
   deals:         Deal[]
+  targets:       SalesTarget[]
   isOwner:       boolean
   userId:        string
   currentUserId: string
@@ -209,6 +210,18 @@ function calcEvolution(regs: HistorialLead[], cutoff: Date, ceiling: Date) {
   })
 }
 
+function calcPace(actual: number, target: number): { pct: number; projectedPct: number; color: string } {
+  if (!target) return { pct: 0, projectedPct: 0, color: 'var(--text-muted)' }
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const dayOfMonth  = now.getDate()
+  const pct         = Math.round((actual / target) * 100)
+  const projected   = Math.round((actual / dayOfMonth) * daysInMonth)
+  const projectedPct = Math.round((projected / target) * 100)
+  const color = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'oklch(65% 0.15 75)' : 'var(--danger)'
+  return { pct, projectedPct, color }
+}
+
 function semaphoreColor(value: number, allValues: number[], higherIsBetter = true): string {
   if (allValues.length <= 1) return 'var(--text-muted)'
   const sorted = [...allValues].sort((a, b) => higherIsBetter ? b - a : a - b)
@@ -230,6 +243,26 @@ function KpiChip({ label, value, color, sub }: { label: string; value: number | 
       <span style={{ fontSize: 22, fontWeight: 700, color: color || 'var(--text)', lineHeight: 1 }}>{value}</span>
       {sub && <span style={{ fontSize: 10, color: color || 'var(--accent)', fontWeight: 600 }}>{sub}</span>}
       <span style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', textAlign: 'center' }}>{label}</span>
+    </div>
+  )
+}
+
+function ProgressBar({ label, actual, target, fmt }: { label: string; actual: number; target: number; fmt?: (n: number) => string }) {
+  if (!target) return null
+  const { pct, projectedPct, color } = calcPace(actual, target)
+  const display = fmt ? fmt : (n: number) => String(n)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, alignItems: 'baseline' }}>
+        <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>{label}</span>
+        <span style={{ fontWeight: 700, color }}>{display(actual)} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/ {display(target)} ({pct}%)</span></span>
+      </div>
+      <div style={{ height: 6, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4, transition: 'width .4s' }} />
+      </div>
+      <div style={{ fontSize: 10.5, color: projectedPct >= 90 ? 'var(--success)' : projectedPct >= 60 ? 'oklch(65% 0.15 75)' : 'var(--danger)' }}>
+        {projectedPct >= 100 ? '✅ En camino a superar la meta' : projectedPct >= 80 ? `🟡 Proyección fin de mes: ${projectedPct}%` : `🔴 Ritmo actual proyecta ${projectedPct}% — necesita acelerar`}
+      </div>
     </div>
   )
 }
@@ -299,7 +332,8 @@ interface VStats {
   prevKpis: KPIs; prevDias: number; prevFollowUp: number
 }
 
-function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
+function RankingTable({ stats, period, targets }: { stats: VStats[]; period: string; targets: SalesTarget[] }) {
+  const currentMonthKey = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
   const all = (key: keyof VStats) => stats.map(s => Number(s[key]) || 0)
   const th: React.CSSProperties = { padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--bg-inset)' }
   const td: React.CSSProperties = { padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: 13 }
@@ -310,6 +344,7 @@ function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
         <thead>
           <tr>
             <th style={{ ...th, textAlign: 'left', minWidth: 140 }}>Vendedor</th>
+            <th style={th}>🎯 Meta acciones<br/><span style={{ fontWeight: 400, fontSize: 10 }}>mes actual</span></th>
             <th style={th}>Acciones<br/><span style={{ fontWeight: 400, fontSize: 10 }}>vs anterior</span></th>
             <th style={th}>Días activos</th>
             <th style={th}>Follow-up %</th>
@@ -335,6 +370,27 @@ function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
                     <Avatar name={s.vendorName} tone={tone} size="sm" />
                     <span style={{ fontWeight: 500 }}>{s.vendorName}</span>
                   </div>
+                </td>
+                <td style={{ ...td, minWidth: 120 }}>
+                  {(() => {
+                    const t = targets.find(x => x.vendor_name === s.vendorName && x.month.startsWith(currentMonthKey))
+                    if (!t || !t.target_acciones) return <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Sin meta</span>
+                    const { pct, projectedPct, color } = calcPace(s.kpis.total, t.target_acciones)
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 110 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{s.kpis.total}/{t.target_acciones}</span>
+                          <span style={{ fontWeight: 700, color }}>{pct}%</span>
+                        </div>
+                        <div style={{ height: 5, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 4 }} />
+                        </div>
+                        <div style={{ fontSize: 9.5, color: projectedPct >= 90 ? 'var(--success)' : projectedPct >= 60 ? 'oklch(65% 0.15 75)' : 'var(--danger)' }}>
+                          Proyección: {projectedPct}%
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </td>
                 <td style={td}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -378,9 +434,122 @@ function RankingTable({ stats, period }: { stats: VStats[]; period: string }) {
   )
 }
 
+// ─── Target modal ─────────────────────────────────────────────────────────────
+function TargetModal({ vendors, targets, onClose, onSaved, userId }: {
+  vendors: string[]
+  targets: SalesTarget[]
+  onClose: () => void
+  onSaved: (updated: SalesTarget[]) => void
+  userId: string
+}) {
+  const supabase = createClient()
+  const now = new Date()
+  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  const [rows, setRows] = useState<Record<string, { acciones: number; ganados: number; monto: number }>>(() => {
+    const init: Record<string, { acciones: number; ganados: number; monto: number }> = {}
+    vendors.forEach(v => {
+      const ex = targets.find(t => t.vendor_name === v && t.month.startsWith(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`))
+      init[v] = { acciones: ex?.target_acciones ?? 0, ganados: ex?.target_ganados ?? 0, monto: ex?.target_monto ?? 0 }
+    })
+    return init
+  })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const newRows: typeof rows = {}
+    vendors.forEach(v => {
+      const ex = targets.find(t => t.vendor_name === v && t.month.startsWith(month))
+      newRows[v] = { acciones: ex?.target_acciones ?? 0, ganados: ex?.target_ganados ?? 0, monto: ex?.target_monto ?? 0 }
+    })
+    setRows(newRows)
+  }, [month]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function set(vendor: string, field: 'acciones' | 'ganados' | 'monto', val: number) {
+    setRows(r => ({ ...r, [vendor]: { ...r[vendor], [field]: val } }))
+  }
+
+  async function save() {
+    setSaving(true)
+    const monthDate = `${month}-01`
+    const upserts = vendors.map(v => ({
+      owner_id: userId, vendor_name: v, month: monthDate,
+      target_acciones: rows[v]?.acciones ?? 0,
+      target_ganados:  rows[v]?.ganados  ?? 0,
+      target_monto:    rows[v]?.monto    ?? 0,
+    }))
+    const { data } = await supabase.from('sales_targets')
+      .upsert(upserts, { onConflict: 'owner_id,vendor_name,month' })
+      .select()
+    setSaving(false)
+    if (data) onSaved(data as SalesTarget[])
+    onClose()
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-inset)', color: 'var(--text)', fontSize: 13, textAlign: 'right' }
+  const th: React.CSSProperties  = { padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'right', borderBottom: '1px solid var(--border)' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="card" style={{ width: '100%', maxWidth: 680, maxHeight: '90vh', overflow: 'auto', padding: 0 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-panel)', zIndex: 1 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>🎯 Configurar metas mensuales</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Define los objetivos por vendedor para el mes seleccionado</div>
+          </div>
+          <input type="month" value={month} onChange={e => setMonth(e.target.value)} className="input" style={{ width: 150, fontSize: 13 }} />
+        </div>
+
+        {/* Table */}
+        <div style={{ padding: '0 0 12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-inset)' }}>
+                <th style={{ ...th, textAlign: 'left', paddingLeft: 20 }}>Vendedor</th>
+                <th style={th}>Acciones / mes<br/><span style={{ fontWeight: 400, fontSize: 10 }}>llamadas + emails + WA + notas</span></th>
+                <th style={th}>Deals ganados</th>
+                <th style={th}>Monto cerrado ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendors.map((v, i) => (
+                <tr key={v} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-inset)' }}>
+                  <td style={{ padding: '10px 12px 10px 20px', fontWeight: 500 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Avatar name={v} tone={VENDOR_TONES[i % VENDOR_TONES.length]} size="sm" />
+                      {v}
+                    </div>
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <input type="number" min={0} value={rows[v]?.acciones ?? 0} onChange={e => set(v, 'acciones', Number(e.target.value))} style={inp} />
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <input type="number" min={0} value={rows[v]?.ganados ?? 0} onChange={e => set(v, 'ganados', Number(e.target.value))} style={inp} />
+                  </td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <input type="number" min={0} value={rows[v]?.monto ?? 0} onChange={e => set(v, 'monto', Number(e.target.value))} style={inp} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--border)', position: 'sticky', bottom: 0, background: 'var(--bg-panel)' }}>
+          <button onClick={onClose} className="btn secondary" disabled={saving}>Cancelar</button>
+          <button onClick={save} className="btn primary" disabled={saving} style={{ minWidth: 100 }}>
+            {saving ? 'Guardando…' : '✓ Guardar metas'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Vendor section ───────────────────────────────────────────────────────────
-function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defaultOpen }: {
-  stats: VStats; contacts: Contact[]; deals: Deal[]; cutoff: Date; ceiling: Date; allStats: VStats[]; defaultOpen: boolean
+function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defaultOpen, target }: {
+  stats: VStats; contacts: Contact[]; deals: Deal[]; cutoff: Date; ceiling: Date; allStats: VStats[]; defaultOpen: boolean; target?: SalesTarget
 }) {
   const [open, setOpen]             = useState(defaultOpen)
   const [tab, setTab]               = useState<VendorTab>('contactos')
@@ -498,6 +667,26 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
               ))}
             </div>
           </div>
+
+          {/* ── Metas del mes ── */}
+          {target && (target.target_acciones > 0 || target.target_ganados > 0 || target.target_monto > 0) && (
+            <div style={{ background: 'var(--bg-inset)', borderRadius: 'var(--r-md)', padding: '12px 16px', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 10 }}>
+                🎯 Meta del mes — {new Date(target.month + 'T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {target.target_acciones > 0 && (
+                  <ProgressBar label="Acciones (llamadas + emails + WA + notas)" actual={kpis.total} target={target.target_acciones} />
+                )}
+                {target.target_ganados > 0 && (
+                  <ProgressBar label="Deals ganados" actual={cierre.ganados} target={target.target_ganados} />
+                )}
+                {target.target_monto > 0 && (
+                  <ProgressBar label="Monto cerrado" actual={Math.round(valorPipeline)} target={target.target_monto} fmt={v => formatCurrency(v)} />
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Views ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -668,12 +857,14 @@ function VendorSection({ stats, contacts, deals, cutoff, ceiling, allStats, defa
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function GestionClient({ registros: init, members, contacts, deals, isOwner, userId, currentUserId }: Props) {
-  const [period, setPeriod]         = useState<Period>('hoy')
-  const [mainView, setMainView]     = useState<MainView>(isOwner ? 'ranking' : 'vendedores')
-  const [selectedVendor, setVendor] = useState('todos')
-  const [allData, setAllData]       = useState<HistorialLead[]>(init)
-  const [loading, setLoading]       = useState(false)
+export default function GestionClient({ registros: init, members, contacts, deals, targets: initTargets, isOwner, userId, currentUserId }: Props) {
+  const [period, setPeriod]           = useState<Period>('hoy')
+  const [mainView, setMainView]       = useState<MainView>(isOwner ? 'ranking' : 'vendedores')
+  const [selectedVendor, setVendor]   = useState('todos')
+  const [allData, setAllData]         = useState<HistorialLead[]>(init)
+  const [loading, setLoading]         = useState(false)
+  const [liveTargets, setLiveTargets] = useState<SalesTarget[]>(initTargets)
+  const [showTargetModal, setShowTargetModal] = useState(false)
   const today = new Date()
   const [customFrom, setCustomFrom] = useState(toInputDate(startOfMonth(today)))
   const [customTo,   setCustomTo]   = useState(toInputDate(today))
@@ -765,7 +956,11 @@ export default function GestionClient({ registros: init, members, contacts, deal
     }
   }), [byVendor, prevRegs, prevFiltered, contacts, deals, cutoff, selectedVendor])
 
-  const globalKPIs  = useMemo(() => calcKPIs(filtered), [filtered])
+  const globalKPIs      = useMemo(() => calcKPIs(filtered), [filtered])
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const getTarget = useCallback((vendorName: string) =>
+    liveTargets.find(t => t.vendor_name === vendorName && t.month.startsWith(currentMonthKey))
+  , [liveTargets, currentMonthKey])
   const periodLabel = useMemo(() => {
     if (period === 'custom') return `${fmtDateShort(new Date(customFrom))} → ${fmtDateShort(new Date(customTo))}`
     const c = getCutoff(period, now)
@@ -884,6 +1079,11 @@ export default function GestionClient({ registros: init, members, contacts, deal
             </>
           )}
           <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 'auto' }}>{loading ? '…' : `${filtered.length} registros`}</span>
+          {isOwner && allVendors.length > 0 && (
+            <button onClick={() => setShowTargetModal(true)} className="btn secondary sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              🎯 Metas
+            </button>
+          )}
           <button onClick={exportExcel} disabled={filtered.length === 0 || loading} className="btn secondary sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <Icon name="doc" size={14} /> Exportar Excel
           </button>
@@ -930,7 +1130,7 @@ export default function GestionClient({ registros: init, members, contacts, deal
                 ))}
               </div>
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <RankingTable stats={vendorStats} period={period} />
+                <RankingTable stats={vendorStats} period={period} targets={liveTargets} />
               </div>
             </div>
           )}
@@ -948,6 +1148,7 @@ export default function GestionClient({ registros: init, members, contacts, deal
                   ceiling={ceiling}
                   allStats={vendorStats}
                   defaultOpen={selectedVendor !== 'todos' || vendorStats.length === 1}
+                  target={getTarget(s.vendorName)}
                 />
               ))}
             </div>
@@ -986,6 +1187,22 @@ export default function GestionClient({ registros: init, members, contacts, deal
             </div>
           )}
         </>
+      )}
+
+      {showTargetModal && (
+        <TargetModal
+          vendors={allVendors}
+          targets={liveTargets}
+          userId={userId}
+          onClose={() => setShowTargetModal(false)}
+          onSaved={updated => {
+            setLiveTargets(prev => {
+              const map = new Map(prev.map(t => [`${t.vendor_name}|${t.month}`, t]))
+              updated.forEach(t => map.set(`${t.vendor_name}|${t.month}`, t))
+              return Array.from(map.values())
+            })
+          }}
+        />
       )}
     </div>
   )

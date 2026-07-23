@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getWorkspaceOwnerId } from '@/lib/supabase/workspace'
 import Topbar from '@/components/layout/Topbar'
 import GestionClient from '@/components/gestion/GestionClient'
-import type { TeamMember, HistorialLead, Contact, Deal } from '@/lib/types'
+import type { TeamMember, HistorialLead, Contact, Deal, SalesTarget } from '@/lib/types'
 
 export default async function GestionPage() {
   const supabase = createClient()
@@ -21,18 +21,21 @@ export default async function GestionPage() {
   let members:   TeamMember[]    = []
   let contacts:  Contact[]       = []
   let deals:     Deal[]          = []
+  let targets:   SalesTarget[]   = []
 
   if (isOwner) {
-    const [{ data: hist }, { data: team }, { data: cont }, { data: dealsData }] = await Promise.all([
+    const [{ data: hist }, { data: team }, { data: cont }, { data: dealsData }, { data: tgts }] = await Promise.all([
       supabase.from('historial_leads').select('*').eq('user_id', workspaceId).gte('fecha', sinceISO).order('fecha', { ascending: false }),
       supabase.from('team_members').select('*').eq('owner_id', workspaceId).eq('status', 'activo').order('name'),
       supabase.from('contacts').select('*').eq('user_id', workspaceId),
       supabase.from('deals').select('*').eq('user_id', workspaceId),
+      supabase.from('sales_targets').select('*').eq('owner_id', workspaceId),
     ])
     registros = (hist      as HistorialLead[]) ?? []
     members   = (team      as TeamMember[])    ?? []
     contacts  = (cont      as Contact[])       ?? []
     deals     = (dealsData as Deal[])          ?? []
+    targets   = (tgts      as SalesTarget[])   ?? []
   } else {
     const { data: myContacts } = await supabase.from('contacts').select('*').eq('user_id', workspaceId)
     contacts = (myContacts as Contact[]) ?? []
@@ -57,6 +60,7 @@ export default async function GestionPage() {
           members={members}
           contacts={contacts}
           deals={deals}
+          targets={targets}
           isOwner={isOwner}
           userId={workspaceId}
           currentUserId={user.id}

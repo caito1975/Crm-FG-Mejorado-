@@ -145,6 +145,17 @@ export interface HistorialLead {
   contact_id: string | null
 }
 
+export interface SalesTarget {
+  id: string
+  owner_id: string
+  vendor_name: string
+  month: string         // ISO date: YYYY-MM-01
+  target_acciones: number
+  target_ganados: number
+  target_monto: number
+  created_at: string
+}
+
 export interface InboxMessage {
   id: string
   created_at: string
