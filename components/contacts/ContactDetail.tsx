@@ -97,6 +97,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
   const [personForm, setPersonForm]     = useState({ name: '', cargo: '', email: '', phone: '' })
   const [showPersonForm, setShowPersonForm] = useState(false)
   const [savingPerson, setSavingPerson] = useState(false)
+  const [targetPerson, setTargetPerson] = useState<ContactPerson | null>(null)
   const [compose, setCompose]           = useState({ subject: '', body: '' })
   const [sendingEmail, setSendingEmail] = useState(false)
   const [sendError, setSendError]       = useState('')
@@ -192,13 +193,14 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
 
   async function handleWaSend() {
     const msg = waMessage.trim()
-    const phone = contact.phone!.replace(/\D/g, '')
+    const rawPhone = (targetPerson?.phone || contact.phone)!.replace(/\D/g, '')
     const url = msg
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/${phone}`
+      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/${rawPhone}`
     setShowWaModal(false)
     setShowPhoneMenu(false)
     setWaMessage('')
+    setTargetPerson(null)
     window.open(url, '_blank')
     await registerWhatsApp(msg)
   }
@@ -236,13 +238,14 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
 
   async function sendEmail(e: React.FormEvent) {
     e.preventDefault()
-    if (!contact.email) return
+    const toEmail = targetPerson?.email || contact.email
+    if (!toEmail) return
     setSendingEmail(true)
     setSendError('')
     const res = await fetch('/api/integrations/gmail/send', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ to: contact.email, subject: compose.subject, body: compose.body, contact_id: contact.id }),
+      body:    JSON.stringify({ to: toEmail, subject: compose.subject, body: compose.body, contact_id: contact.id }),
     })
     const data = await res.json()
     setSendingEmail(false)
@@ -270,6 +273,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       contact_id:     contact.id,
     })
     setCompose({ subject: '', body: '' })
+    setTargetPerson(null)
     setShowCompose(false)
   }
 
@@ -607,14 +611,20 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                     {p.cargo && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 1 }}>{p.cargo}</div>}
                     <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
                       {p.email && (
-                        <a href={`mailto:${p.email}`} style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button
+                          onClick={() => { setTargetPerson(p); setShowCompose(true) }}
+                          style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
                           <Icon name="mail" size={11} /> {p.email}
-                        </a>
+                        </button>
                       )}
                       {p.phone && (
-                        <a href={`https://wa.me/${p.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--success)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button
+                          onClick={() => { setTargetPerson(p); setShowWaModal(true) }}
+                          style={{ fontSize: 12, color: 'var(--success)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
                           <Icon name="phone" size={11} /> {p.phone}
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -640,20 +650,20 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       )}
 
       {showWaModal && (
-        <div className="modal-backdrop" onClick={() => { setShowWaModal(false); setWaMessage('') }}>
+        <div className="modal-backdrop" onClick={() => { setShowWaModal(false); setWaMessage(''); setTargetPerson(null) }}>
           <div className="modal" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Icon name="whatsapp" size={16} /> WhatsApp a {contact.name}
+                <Icon name="whatsapp" size={16} /> WhatsApp a {targetPerson?.name ?? contact.name}
               </h3>
-              <button className="btn ghost sm icon" onClick={() => { setShowWaModal(false); setWaMessage('') }}>
+              <button className="btn ghost sm icon" onClick={() => { setShowWaModal(false); setWaMessage(''); setTargetPerson(null) }}>
                 <Icon name="x" size={14} />
               </button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label className="field-label">Para</label>
-                <input className="input" value={contact.phone ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
+                <input className="input" value={(targetPerson?.phone ?? contact.phone) ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
               </div>
               <div>
                 <label className="field-label">Mensaje <span style={{ color: 'var(--text-subtle)', fontWeight: 400 }}>(opcional — se pre-carga en WhatsApp y queda registrado)</span></label>
@@ -669,7 +679,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
               </div>
             </div>
             <div className="modal-foot">
-              <button type="button" className="btn" onClick={() => { setShowWaModal(false); setWaMessage('') }}>Cancelar</button>
+              <button type="button" className="btn" onClick={() => { setShowWaModal(false); setWaMessage(''); setTargetPerson(null) }}>Cancelar</button>
               <button type="button" className="btn primary" onClick={handleWaSend} style={{ gap: 6 }}>
                 <Icon name="whatsapp" size={13} /> Abrir WhatsApp
               </button>
@@ -679,13 +689,13 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       )}
 
       {showCompose && (
-        <div className="modal-backdrop" onClick={() => setShowCompose(false)}>
+        <div className="modal-backdrop" onClick={() => { setShowCompose(false); setTargetPerson(null) }}>
           <div className="modal" style={{ width: 540 }} onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="send" size={16} /> Enviar email
               </h3>
-              <button className="btn ghost sm icon" onClick={() => setShowCompose(false)}>
+              <button className="btn ghost sm icon" onClick={() => { setShowCompose(false); setTargetPerson(null) }}>
                 <Icon name="x" size={14} />
               </button>
             </div>
@@ -693,7 +703,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
                   <label className="field-label">Para</label>
-                  <input className="input" value={contact.email ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
+                  <input className="input" value={(targetPerson?.email ?? contact.email) ?? ''} readOnly style={{ background: 'var(--bg-sunken)', color: 'var(--text-muted)' }} />
                 </div>
                 <div>
                   <label className="field-label">Asunto</label>
@@ -735,7 +745,7 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                 )}
               </div>
               <div className="modal-foot">
-                <button type="button" className="btn" onClick={() => setShowCompose(false)}>Cancelar</button>
+                <button type="button" className="btn" onClick={() => { setShowCompose(false); setTargetPerson(null) }}>Cancelar</button>
                 <button type="submit" className="btn primary" disabled={sendingEmail || !compose.subject || !compose.body}>
                   <Icon name="send" size={13} />
                   {sendingEmail ? 'Enviando…' : 'Enviar'}
