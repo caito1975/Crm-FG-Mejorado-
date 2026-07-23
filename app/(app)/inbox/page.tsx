@@ -13,6 +13,7 @@ export default async function InboxPage() {
   const { workspaceId, isOwner } = await getWorkspaceOwnerId(supabase, user)
 
   let messages: InboxMessage[] = []
+  let senderName: string | null = null
 
   if (isOwner) {
     // Owner ve todos los mensajes del workspace
@@ -24,11 +25,12 @@ export default async function InboxPage() {
     messages = (data as InboxMessage[]) ?? []
   } else {
     // Vendor: obtener los nombres de sus contactos asignados
-    const { data: assignedContacts } = await supabase
-      .from('contacts')
-      .select('name')
-      .eq('user_id', workspaceId)
-      .eq('assigned_to', user.id)
+    const [{ data: assignedContacts }, { data: tm }] = await Promise.all([
+      supabase.from('contacts').select('name').eq('user_id', workspaceId).eq('assigned_to', user.id),
+      supabase.from('team_members').select('name').eq('owner_id', workspaceId).eq('member_user_id', user.id).single(),
+    ])
+
+    senderName = tm?.name ?? null
 
     const assignedNames = (assignedContacts ?? []).map(c => c.name)
 
@@ -47,7 +49,7 @@ export default async function InboxPage() {
     <>
       <Topbar crumbs={[{ label: 'Inbox' }]} />
       <div className="view flush" style={{ height: 'calc(100vh - var(--topbar-h))' }}>
-        <InboxClient userId={workspaceId} initialMessages={messages} />
+        <InboxClient userId={workspaceId} initialMessages={messages} senderName={senderName} />
       </div>
     </>
   )

@@ -20,9 +20,10 @@ const LABELS_COLORS: Record<string, string> = {
 interface Props {
   userId: string
   initialMessages: InboxMessage[]
+  senderName: string | null
 }
 
-export default function InboxClient({ userId, initialMessages }: Props) {
+export default function InboxClient({ userId, initialMessages, senderName }: Props) {
   const supabase = createClient()
   const [messages, setMessages]       = useState(initialMessages)
   const [selected, setSelected]       = useState<InboxMessage | null>(null)
@@ -92,6 +93,15 @@ export default function InboxClient({ userId, initialMessages }: Props) {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'Error al enviar')
+        if (contactInfo.id) {
+          supabase.from('historial_leads').insert({
+            user_id: userId, fecha: new Date().toISOString(),
+            nombre: selected.from_name ?? '', numero: contactInfo.phone ?? null,
+            tipo: 'WHATSAPP', mensaje: reply.slice(0, 300),
+            etapa_anterior: null, etapa_nueva: null,
+            vendedor: senderName, contact_id: contactInfo.id,
+          }).then()
+        }
       } else {
         if (!contactInfo?.email) {
           setSendStatus({ type: 'err', msg: 'Sin email para este contacto.' })
@@ -104,6 +114,15 @@ export default function InboxClient({ userId, initialMessages }: Props) {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'Error al enviar')
+        if (contactInfo.id) {
+          supabase.from('historial_leads').insert({
+            user_id: userId, fecha: new Date().toISOString(),
+            nombre: selected.from_name ?? '', numero: null,
+            tipo: 'EMAIL', mensaje: `Re: ${selected.subject ?? ''}`.slice(0, 300),
+            etapa_anterior: null, etapa_nueva: null,
+            vendedor: senderName, contact_id: contactInfo.id,
+          }).then()
+        }
       }
       setSendStatus({ type: 'ok', msg: channel === 'wa' ? 'Mensaje enviado por WhatsApp ✓' : 'Email enviado ✓' })
       setReply('')
