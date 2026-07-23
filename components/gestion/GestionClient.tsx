@@ -925,11 +925,19 @@ export default function GestionClient({ registros: init, members, contacts, deal
     const s = new Set<string>(); allData.forEach(r => { if (r.vendedor) s.add(r.vendedor) }); return Array.from(s).sort()
   }, [allData, members])
 
-  // Fallback: when historial_leads.vendedor is null (n8n records, old entries),
-  // resolve the vendor from the contact's current owner_name
+  // Fallback: when historial_leads.vendedor is null, resolve from the contact.
+  // Some contacts have owner_name=null but assigned_to set — handle both cases.
   const contactOwnerMap = useMemo(() => {
+    // Build assigned_to (auth uid) → vendor name from contacts that have both fields
+    const byAssignedTo = new Map<string, string>()
+    contacts.forEach(c => { if (c.assigned_to && c.owner_name) byAssignedTo.set(c.assigned_to, c.owner_name) })
+
     const m = new Map<string, string>()
-    contacts.forEach(c => { if (c.id && c.owner_name) m.set(c.id, c.owner_name) })
+    contacts.forEach(c => {
+      if (!c.id) return
+      const name = c.owner_name || (c.assigned_to ? byAssignedTo.get(c.assigned_to) : null)
+      if (name) m.set(c.id, name)
+    })
     return m
   }, [contacts])
 
