@@ -156,6 +156,17 @@ export interface SalesTarget {
   created_at: string
 }
 
+export interface ContactPerson {
+  id: string
+  contact_id: string
+  user_id: string
+  name: string
+  cargo: string | null
+  email: string | null
+  phone: string | null
+  created_at: string
+}
+
 export interface InboxMessage {
   id: string
   created_at: string

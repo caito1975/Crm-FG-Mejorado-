@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getWorkspaceOwnerId } from '@/lib/supabase/workspace'
 import Topbar from '@/components/layout/Topbar'
 import ContactDetail from '@/components/contacts/ContactDetail'
-import type { Contact, Deal, Task, Activity } from '@/lib/types'
+import type { Contact, Deal, Task, Activity, ContactPerson } from '@/lib/types'
 
 export default async function ContactDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -18,11 +18,13 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
     { data: deals },
     { data: tasks },
     { data: activities },
+    { data: persons },
   ] = await Promise.all([
     supabase.from('contacts').select('*').eq('id', params.id).eq('user_id', workspaceId).single(),
     supabase.from('deals').select('*').eq('contact_id', params.id).order('created_at', { ascending: false }),
     supabase.from('tasks').select('*').eq('contact_id', params.id).order('created_at', { ascending: false }),
     supabase.from('activities').select('*').eq('contact_id', params.id).order('created_at', { ascending: false }),
+    supabase.from('contact_persons').select('*').eq('contact_id', params.id).order('created_at', { ascending: true }),
   ])
 
   if (!contact) notFound()
@@ -38,6 +40,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
           initialDeals={(deals as Deal[]) ?? []}
           initialTasks={(tasks as Task[]) ?? []}
           initialActivities={(activities as Activity[]) ?? []}
+          initialPersons={(persons as ContactPerson[]) ?? []}
           isOwner={isOwner}
         />
       </div>

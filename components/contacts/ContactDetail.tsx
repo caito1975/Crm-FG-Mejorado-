@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Contact, Deal, Task, Activity, ActivityKind } from '@/lib/types'
+import type { Contact, Deal, Task, Activity, ActivityKind, ContactPerson } from '@/lib/types'
 import { formatCurrency } from '@/lib/types'
 import Icon from '@/components/ui/Icon'
 import Avatar from '@/components/ui/Avatar'
@@ -26,7 +26,7 @@ const STAGE_LABELS: Record<string, string> = {
   ped_fc: 'Ped. de FC', doc_firmada: 'Doc. Firmada', ganado: 'Ganado-Consumo', perdido: 'Perdido',
 }
 
-type Tab = 'actividad' | 'deals' | 'tareas' | 'nota'
+type Tab = 'actividad' | 'deals' | 'tareas' | 'nota' | 'personas'
 
 // Convert the HTML clipboard flavor (Word/Outlook/Gmail) to plain text keeping
 // bullets and line breaks — the plain-text flavor drops Word list bullets entirely.
@@ -73,10 +73,11 @@ interface Props {
   initialDeals: Deal[]
   initialTasks: Task[]
   initialActivities: Activity[]
+  initialPersons: ContactPerson[]
   isOwner?: boolean
 }
 
-export default function ContactDetail({ userId, ownerName, contact: initialContact, initialDeals, initialTasks, initialActivities, isOwner = true }: Props) {
+export default function ContactDetail({ userId, ownerName, contact: initialContact, initialDeals, initialTasks, initialActivities, initialPersons, isOwner = true }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [contact, setContact]     = useState(initialContact)
@@ -92,6 +93,10 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
   const [showPhoneMenu, setShowPhoneMenu] = useState(false)
   const [showWaModal, setShowWaModal]   = useState(false)
   const [waMessage, setWaMessage]       = useState('')
+  const [persons, setPersons]           = useState<ContactPerson[]>(initialPersons)
+  const [personForm, setPersonForm]     = useState({ name: '', cargo: '', email: '', phone: '' })
+  const [showPersonForm, setShowPersonForm] = useState(false)
+  const [savingPerson, setSavingPerson] = useState(false)
   const [compose, setCompose]           = useState({ subject: '', body: '' })
   const [sendingEmail, setSendingEmail] = useState(false)
   const [sendError, setSendError]       = useState('')
@@ -273,6 +278,29 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done } : t))
   }
 
+  async function addPerson(e: React.FormEvent) {
+    e.preventDefault()
+    if (!personForm.name.trim()) return
+    setSavingPerson(true)
+    const { data } = await supabase.from('contact_persons').insert({
+      contact_id: contact.id,
+      user_id:    userId,
+      name:       personForm.name.trim(),
+      cargo:      personForm.cargo.trim() || null,
+      email:      personForm.email.trim() || null,
+      phone:      personForm.phone.trim() || null,
+    }).select().single()
+    if (data) setPersons(ps => [...ps, data as ContactPerson])
+    setPersonForm({ name: '', cargo: '', email: '', phone: '' })
+    setShowPersonForm(false)
+    setSavingPerson(false)
+  }
+
+  async function deletePerson(id: string) {
+    await supabase.from('contact_persons').delete().eq('id', id)
+    setPersons(ps => ps.filter(p => p.id !== id))
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: '100%' }}>
       {/* Left panel — contact info */}
@@ -390,9 +418,9 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
       {/* Right panel — tabs */}
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="tabs" style={{ padding: '0 24px', flexShrink: 0 }}>
-          {(['actividad', 'deals', 'tareas', 'nota'] as Tab[]).map(t => (
+          {(['actividad', 'deals', 'tareas', 'nota', 'personas'] as Tab[]).map(t => (
             <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {t === 'personas' ? `Personas${persons.length ? ` (${persons.length})` : ''}` : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -517,6 +545,84 @@ export default function ContactDetail({ userId, ownerName, contact: initialConta
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* Personas tab */}
+          {tab === 'personas' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
+                  Personas de contacto adicionales en esta cuenta.
+                </p>
+                <button className="btn primary sm" onClick={() => setShowPersonForm(s => !s)} style={{ gap: 5 }}>
+                  <Icon name="plus" size={12} /> Agregar
+                </button>
+              </div>
+
+              {showPersonForm && (
+                <form onSubmit={addPerson} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label className="field-label">Nombre *</label>
+                      <input className="input" placeholder="Nombre completo" value={personForm.name} onChange={e => setPersonForm(f => ({ ...f, name: e.target.value }))} autoFocus required />
+                    </div>
+                    <div>
+                      <label className="field-label">Cargo</label>
+                      <input className="input" placeholder="CEO, Compras, etc." value={personForm.cargo} onChange={e => setPersonForm(f => ({ ...f, cargo: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="field-label">Email</label>
+                      <input className="input" type="email" placeholder="email@empresa.com" value={personForm.email} onChange={e => setPersonForm(f => ({ ...f, email: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="field-label">Teléfono</label>
+                      <input className="input" placeholder="11 xxxx-xxxx" value={personForm.phone} onChange={e => setPersonForm(f => ({ ...f, phone: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="submit" className="btn primary sm" disabled={savingPerson || !personForm.name.trim()}>
+                      {savingPerson ? 'Guardando…' : 'Guardar'}
+                    </button>
+                    <button type="button" className="btn sm" onClick={() => { setShowPersonForm(false); setPersonForm({ name: '', cargo: '', email: '', phone: '' }) }}>
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {persons.length === 0 && !showPersonForm && (
+                <div className="empty" style={{ padding: '30px 0' }}>
+                  <p>Sin personas secundarias. Hacé clic en "Agregar" para sumar un contacto adicional.</p>
+                </div>
+              )}
+
+              {persons.map(p => (
+                <div key={p.id} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                    {p.cargo && <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 1 }}>{p.cargo}</div>}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                      {p.email && (
+                        <a href={`mailto:${p.email}`} style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Icon name="mail" size={11} /> {p.email}
+                        </a>
+                      )}
+                      {p.phone && (
+                        <a href={`https://wa.me/${p.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--success)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Icon name="phone" size={11} /> {p.phone}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <button className="btn ghost sm icon" onClick={() => deletePerson(p.id)} title="Eliminar">
+                    <Icon name="x" size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
