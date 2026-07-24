@@ -147,5 +147,6 @@ export async function cascadeLeadAssignment(
       contact_id:  contactId,
       leida:       false,
     })
-  if (notifErr) console.error('[cascade] insert notification:', notifErr.message)
+  if (notifErr) console.error('[cascade] insert notification ERROR:', notifErr.message, notifErr.details)
+  else console.log('[cascade] notification insertada para vendor:', newVendorId)
 }

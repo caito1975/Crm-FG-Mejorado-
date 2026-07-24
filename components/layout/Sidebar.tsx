@@ -56,14 +56,16 @@ export default function Sidebar({
   const unread = notifs.filter(n => !n.leida).length
 
   useEffect(() => {
-    const fetchNotifs = () =>
-      supabase
+    const fetchNotifs = async () => {
+      const { data, error } = await supabase
         .from('notifications')
         .select('id, titulo, mensaje, contact_id, leida, created_at')
         .eq('for_user_id', currentUserId)
         .order('created_at', { ascending: false })
         .limit(20)
-        .then(({ data }) => { if (data) setNotifs(data as Notification[]) })
+      if (error) console.error('[notifications] fetch error:', error.message)
+      if (data) setNotifs(data as Notification[])
+    }
 
     fetchNotifs()
     const timer = setInterval(fetchNotifs, 30_000)
@@ -200,7 +202,7 @@ export default function Sidebar({
             onClick={() => setShowNotifs(s => !s)}
             style={{ position: 'relative' }}
           >
-            <Icon name="flag" size={14} />
+            <Icon name="bell" size={14} />
             {unread > 0 && (
               <span style={{
                 position: 'absolute', top: 2, right: 2,
