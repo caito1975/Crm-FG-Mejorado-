@@ -47,6 +47,7 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
   )
   const [showModal, setShowModal]       = useState(false)
   const [editContact, setEditContact]   = useState<Contact | null>(null)
+  const [sinAsignar, setSinAsignar]     = useState(false)
 
   // Bulk assignment state
   const [selected, setSelected]         = useState<Set<string>>(new Set())
@@ -89,6 +90,8 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
 
   const stale14Cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
 
+  const sinAsignarCount = contacts.filter(c => !c.assigned_to && !c.owner_name).length
+
   const filtered = contacts.filter(c => {
     const matchStatus = statusFilter === 'all' || c.status === statusFilter
     const matchSearch = !search || [c.name, c.company, c.email, c.city].some(
@@ -97,7 +100,8 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
     const matchActivity = activityFilter !== 'stale' || (
       !c.last_touch || new Date(c.last_touch) < stale14Cutoff
     )
-    return matchStatus && matchSearch && matchActivity
+    const matchAssignment = !sinAsignar || (!c.assigned_to && !c.owner_name)
+    return matchStatus && matchSearch && matchActivity && matchAssignment
   })
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(c => selected.has(c.id))
@@ -305,10 +309,13 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
             <h1>Contactos</h1>
             <p>
               {contacts.length} contactos · {contacts.filter(c => c.status === 'cliente').length} clientes
-              {isOwner && contacts.filter(c => !c.assigned_to && !c.owner_name).length > 0 && (
-                <span style={{ color: 'var(--warning)', marginLeft: 8 }}>
-                  · {contacts.filter(c => !c.assigned_to && !c.owner_name).length} sin asignar
-                </span>
+              {isOwner && sinAsignarCount > 0 && (
+                <button
+                  onClick={() => setSinAsignar(s => !s)}
+                  style={{ background: 'none', border: 'none', padding: '0 0 0 8px', cursor: 'pointer', color: sinAsignar ? 'var(--warning)' : 'var(--text-muted)', fontSize: 'inherit', fontWeight: sinAsignar ? 600 : 400 }}
+                >
+                  · {sinAsignarCount} sin asignar
+                </button>
               )}
             </p>
           </div>
@@ -350,8 +357,8 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
           {STATUS_FILTERS.map(f => (
             <button
               key={f.value}
-              className={`tab ${statusFilter === f.value ? 'active' : ''}`}
-              onClick={() => setStatusFilter(f.value)}
+              className={`tab ${statusFilter === f.value && !sinAsignar ? 'active' : ''}`}
+              onClick={() => { setStatusFilter(f.value); setSinAsignar(false) }}
             >
               {f.label}
               <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-subtle)' }}>
@@ -359,6 +366,18 @@ export default function ContactsTable({ userId, ownerName, initialContacts, isOw
               </span>
             </button>
           ))}
+          {isOwner && sinAsignarCount > 0 && (
+            <button
+              className={`tab ${sinAsignar ? 'active' : ''}`}
+              onClick={() => { setSinAsignar(s => !s); setStatusFilter('all') }}
+              style={sinAsignar ? { color: 'var(--warning)', borderColor: 'var(--warning)' } : { color: 'var(--text-muted)' }}
+            >
+              Sin asignar
+              <span style={{ marginLeft: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: sinAsignar ? 'var(--warning)' : 'var(--text-subtle)' }}>
+                {sinAsignarCount}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Table */}
