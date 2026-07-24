@@ -53,6 +53,7 @@ export default function DashboardClient({
   const [tasks,      setTasks]      = useState(initialTasks)
   const [activities, setActivities] = useState(initialActivities)
   const [period,     setPeriod]     = useState<Period>('month')
+  const [showBrief,  setShowBrief]  = useState(false)
   const supabase = createClient()
   const { formatAmount } = useCurrency()
 
@@ -504,11 +505,88 @@ export default function DashboardClient({
               }
             </div>
           </div>
-          <button className="btn sm">Descartar</button>
-          <button className="btn primary sm">{isOwner ? 'Ver equipo' : 'Ver oportunidades'}</button>
+          <button className="btn sm" onClick={() => setShowBrief(false)}>Descartar</button>
+          <button className="btn primary sm" onClick={() => isOwner && setShowBrief(true)}>{isOwner ? 'Ver equipo' : 'Ver oportunidades'}</button>
         </div>
       </div>
     </div>
+
+    {/* ── Brief detail modal ──────────────────────────────────────────────── */}
+    {showBrief && (() => {
+      const propsPendientes = deals.filter(d => d.stage_id === 'prop_enviada')
+      const sinAsignar      = contacts.filter(c => !c.assigned_to && !c.owner_name)
+      return (
+        <div className="modal-backdrop" onClick={() => setShowBrief(false)}>
+          <div className="modal" style={{ width: 620, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon name="sparkles" size={15} /> Resumen del workspace
+              </h3>
+              <button className="btn ghost sm icon" onClick={() => setShowBrief(false)}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+              {/* Propuestas sin respuesta */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-subtle)', marginBottom: 10 }}>
+                  Propuestas enviadas sin respuesta ({propsPendientes.length})
+                </div>
+                {propsPendientes.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No hay propuestas pendientes.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {propsPendientes.map(d => {
+                      const c = contacts.find(x => x.id === d.contact_id)
+                      return (
+                        <a key={d.id} href={c ? `/contacts/${c.id}` : '#'} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 6, background: 'var(--bg-panel)', textDecoration: 'none', color: 'var(--text)', gap: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>{c?.name ?? '—'} · {c?.company ?? '—'}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
+                            {d.amount > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--accent)' }}>{formatAmount(d.amount)}</span>}
+                            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{d.owner_name ?? 'Sin vendedor'}</span>
+                          </div>
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Leads sin asignar */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-subtle)', marginBottom: 10 }}>
+                  Leads sin asignar ({sinAsignar.length})
+                </div>
+                {sinAsignar.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Todos los leads tienen vendedor asignado.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {sinAsignar.map(c => (
+                      <a key={c.id} href={`/contacts/${c.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 6, background: 'var(--bg-panel)', textDecoration: 'none', color: 'var(--text)', gap: 12 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>{c.company ?? '—'} · {c.status}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                          {c.phone && <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{c.phone}</span>}
+                          <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', fontWeight: 600 }}>Sin asignar</span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )
+    })()}
   )
 }
 
