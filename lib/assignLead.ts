@@ -134,4 +134,18 @@ export async function cascadeLeadAssignment(
       labels:     [],
     })
   if (inboxErr) console.error('[cascade] insert inbox:', inboxErr.message)
+
+  // Notification: badge visible en el sidebar del vendedor
+  const { error: notifErr } = await supabase
+    .from('notifications')
+    .insert({
+      user_id:     userId,
+      for_user_id: newVendorId,
+      tipo:        'asignacion',
+      titulo:      `Te asignaron: ${contactName}`,
+      mensaje:     contactCompany ?? null,
+      contact_id:  contactId,
+      leida:       false,
+    })
+  if (notifErr) console.error('[cascade] insert notification:', notifErr.message)
 }

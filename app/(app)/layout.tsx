@@ -43,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       userName={userName}
       userRole={userRole}
       isOwner={isOwner}
+      currentUserId={user.id}
       contactCount={contactCount ?? 0}
       dealCount={dealCount ?? 0}
       taskCount={taskCount ?? 0}

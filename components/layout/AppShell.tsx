@@ -6,6 +6,7 @@ interface AppShellProps {
   userName: string
   userRole: string
   isOwner: boolean
+  currentUserId: string
   contactCount: number
   dealCount: number
   taskCount: number
@@ -18,7 +19,7 @@ interface AppShellProps {
 }
 
 export default function AppShell({
-  userName, userRole, isOwner, contactCount, dealCount, taskCount, teamCount, inboxCount,
+  userName, userRole, isOwner, currentUserId, contactCount, dealCount, taskCount, teamCount, inboxCount,
   themePreference, densityPreference, currencyPreference, children,
 }: AppShellProps) {
 
@@ -59,6 +60,7 @@ export default function AppShell({
         userName={userName}
         userRole={userRole}
         isOwner={isOwner}
+        currentUserId={currentUserId}
         contactCount={contactCount}
         dealCount={dealCount}
         taskCount={taskCount}
